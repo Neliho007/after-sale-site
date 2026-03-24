@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>售后管理+成本计算器+费用登记</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 0 20px;
+            background-color: #f5f5f5;
+        }
+        .tab {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #e0e0e0;
+            cursor: pointer;
+            flex: 1;
+            font-size: 16px;
+        }
+        .tab-btn.active {
+            background: #2196F3;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .filter-bar {
+            background: #eef5ff;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .filter-item {
+            flex: 1;
+            min-width: 120px;
+        }
+        .filter-item label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 3px;
+            display: block;
+        }
+        .filter-item input,
+        .filter-item select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .filter-btn {
+            padding: 6px 12px;
+            background: #2196F3;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            align-self: flex-end;
+        }
+        .filter-btn.reset {
+            background: #999;
+        }
+        .export-btn {
+            background: #4CAF50 !important;
+            margin-left: auto;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input, textarea, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        select {
+            height: 40px;
+            color: #333;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 15px;
+            padding: 12px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .list {
+            margin-top: 20px;
+        }
+        .item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        .item h3 {
+            margin-bottom: 10px;
+            color: #2196F3;
+            font-size: 16px;
+        }
+        .item p {
+            margin-bottom: 5px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .item .btn-group {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .item .edit {
+            color: #2196F3;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 5px 10px;
+            border: 1px solid #2196F3;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .item .edit:hover {
+            background: #e3f2fd;
+        }
+        .item .delete {
+            color: red;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 5px 10px;
+            border: 1px solid red;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .item .delete:hover {
+            background: #ffebee;
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        .required {
+            color: red;
+            margin-left: 2px;
+        }
+        .tracking-link {
+            color: #2196F3;
+            font-weight: bold;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .save-btn {
+            background: #4CAF50 !important;
+        }
+        .cancel-btn {
+            background: #ff9800 !important;
+        }
+
+        /* 成本计算器通用样式 - 统一所有输入框样式 */
+        .calc-box, .gift-calc-box, .ddjbbox, .pddpricebox {
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .calc-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: flex-end; /* 底部对齐，保证所有输入框在同一水平线 */
+        }
+        .calc-item {
+            flex: 1;
+            min-width: 120px; /* 最小宽度，防止缩太小 */
+        }
+        .calc-item label {
+            font-size: 14px;
+            margin-bottom: 5px;
+            line-height: 1.4;
+        }
+        /* 统一所有计算模块的输入框/下拉框样式 */
+        .calc-item input, .calc-item select {
+            height: 38px;
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .calc-item small {
+            font-size: 12px;
+            color: #666;
+        }
+        .result-row {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .result-item {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .result-item strong {
+            color: #2196F3;
+        }
+        
+        /* 各模块专属样式 */
+        .calc-box {
+            background: #f0f8ff;
+        }
+        .gift-calc-box {
+            background: #fff8e1;
+            border: 1px solid #ffc107;
+        }
+        .gift-calc-box h4 {
+            color: #ff8f00;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .ddjbbox {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+        }
+        .ddjbbox h4 {
+            color: #2e7d32;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .pddpricebox {
+            background: #fff3e0;
+            border: 1px solid #ff9800;
+        }
+        .pddpricebox h4 {
+            color: #e65100;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        /* 百分比符号容器样式 */
+        .percent-wrap {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            width: 100%;
+        }
+        .percent-wrap input {
+            flex: 1;
+        }
+        .percent-wrap span {
+            font-size: 12px;
+            white-space: nowrap;
+            color: #666;
+        }
+
+        /* 费用合计样式 */
+        .total-amount {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2196F3;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+<div class="tab">
+    <button class="tab-btn" onclick="switchTab('schedule')">日程提醒</button>
+    <button class="tab-btn" onclick="switchTab('aftersale')">售后登记</button>
+    <button class="tab-btn" onclick="switchTab('cost')">成本计算器</button>
+    <button class="tab-btn" onclick="switchTab('expense')">费用登记</button> <!-- 新增费用登记标签 -->
+</div>
+
+<!-- 日程 -->
+<div id="schedule" class="tab-content">
+    <div class="form-group">
+        <label>日程标题<span class="required">*</span></label>
+        <input type="text" id="schedule-title" placeholder="例如：处理售后">
+    </div>
+    <div class="form-group">
+        <label>提醒时间<span class="required">*</span></label>
+        <input type="datetime-local" id="schedule-time">
+    </div>
+    <div class="form-group">
+        <label>备注</label>
+        <textarea id="schedule-note" rows="3"></textarea>
+    </div>
+    <button onclick="addSchedule()">添加日程</button>
+    <div class="list" id="schedule-list"></div>
+</div>
+
+<!-- 售后 -->
+<div id="aftersale" class="tab-content">
+    <div class="filter-bar">
+        <div class="filter-item">
+            <label>平台</label>
+            <select id="filter-platform">
+                <option value="">全部</option>
+                <option value="淘宝">淘宝</option>
+                <option value="拼多多">拼多多</option>
+                <option value="京东">京东</option>
+                <option value="抖音">抖音</option>
+                <option value="快手">快手</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>售后状态</label>
+            <select id="filter-status">
+                <option value="">全部</option>
+                <option value="申请退货退款">申请退货退款</option>
+                <option value="申请仅退款">申请仅退款</option>
+                <option value="已退货待揽收">已退货待揽收</option>
+                <option value="已发货待收货">已发货待收货</option>
+                <option value="已签收待处理">已签收待处理</option>
+                <option value="等待退款">等待退款</option>
+                <option value="退款已完成">退款已完成</option>
+                <option value="售后关闭">售后关闭</option>
+                <!-- 新增换货状态 -->
+                <option value="换货，待消费者寄出">换货，待消费者寄出</option>
+                <option value="换货，消费者已寄出，等待商家收货">换货，消费者已寄出，等待商家收货</option>
+                <option value="商家收货，待寄出">商家收货，待寄出</option>
+                <option value="商家换货已寄出，等待买家收货">商家换货已寄出，等待买家收货</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>订单搜索</label>
+            <input type="text" id="filter-order" placeholder="订单号">
+        </div>
+        <div class="filter-item">
+            <label>物流</label>
+            <select id="filter-logistics">
+                <option value="">全部</option>
+                <option value="顺丰">顺丰</option>
+                <option value="中通">中通</option>
+                <option value="圆通">圆通</option>
+                <option value="韵达">韵达</option>
+                <option value="申通">申通</option>
+                <option value="极兔">极兔</option>
+                <option value="邮政">邮政</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>物流单号</label>
+            <input type="text" id="filter-logistics-no" placeholder="单号搜索">
+        </div>
+        <div class="filter-item">
+            <label>申请日期</label>
+            <input type="date" id="filter-date">
+        </div>
+        <button class="filter-btn" onclick="doFilter()">筛选</button>
+        <button class="filter-btn reset" onclick="resetFilter()">重置</button>
+        <button class="filter-btn export-btn" onclick="exportAftersaleExcel()">导出Excel</button>
+    </div>
+
+    <input type="hidden" id="edit-aftersale-id" value="">
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>申请平台<span class="required">*</span></label>
+            <select id="aftersale-platform">
+                <option value="">请选择</option>
+                <option value="淘宝">淘宝</option>
+                <option value="京东">京东</option>
+                <option value="拼多多">拼多多</option>
+                <option value="抖音">抖音</option>
+                <option value="快手">快手</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>申请日期<span class="required">*</span></label>
+            <input type="date" id="aftersale-date">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>售后状态<span class="required">*</span></label>
+        <select id="aftersale-status">
+            <option value="">请选择状态</option>
+            <option value="申请退货退款">申请退货退款</option>
+            <option value="申请仅退款">申请仅退款</option>
+            <option value="已退货待揽收">已退货待揽收</option>
+            <option value="已发货待收货">已发货待收货</option>
+            <option value="已签收待处理">已签收待处理</option>
+            <option value="等待退款">等待退款</option>
+            <option value="退款已完成">退款已完成</option>
+            <option value="售后关闭">售后关闭</option>
+            <!-- 新增换货状态 -->
+            <option value="换货，待消费者寄出">换货，待消费者寄出</option>
+            <option value="换货，消费者已寄出，等待商家收货">换货，消费者已寄出，等待商家收货</option>
+            <option value="商家收货，待寄出">商家收货，待寄出</option>
+            <option value="商家换货已寄出，等待买家收货">商家换货已寄出，等待买家收货</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>订单编号<span class="required">*</span></label>
+            <input type="text" id="aftersale-order" placeholder="订单号">
+        </div>
+        <div class="form-group">
+            <label>产品ID</label>
+            <input type="text" id="aftersale-product-id" placeholder="商品ID">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>产品名称<span class="required">*</span></label>
+            <input type="text" id="aftersale-product-name" placeholder="商品名称">
+        </div>
+        <div class="form-group">
+            <label>退款编号</label>
+            <input type="text" id="aftersale-refund-id" placeholder="退款单号">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>物流</label>
+            <select id="aftersale-logistics">
+                <option value="">请选择</option>
+                <option value="顺丰">顺丰</option>
+                <option value="中通">中通</option>
+                <option value="圆通">圆通</option>
+                <option value="韵达">韵达</option>
+                <option value="申通">申通</option>
+                <option value="极兔">极兔</option>
+                <option value="邮政">邮政</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>物流单号</label>
+            <input type="text" id="aftersale-logistics-no" placeholder="物流单号">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>是否收到退货</label>
+            <select id="aftersale-received">
+                <option value="">请选择</option>
+                <option value="是">是</option>
+                <option value="否">否</option>
+                <option value="待确认">待确认</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>是否退款</label>
+            <select id="aftersale-refunded">
+                <option value="">请选择</option>
+                <option value="是">是</option>
+                <option value="否">否</option>
+                <option value="处理中">处理中</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>运费是否赔付</label>
+            <select id="aftersale-freight">
+                <option value="">请选择</option>
+                <option value="是">是</option>
+                <option value="否">否</option>
+                <option value="协商中">协商中</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>退款金额（元）</label>
+            <input type="number" step="0.01" id="aftersale-amount" placeholder="例如：99.90">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>退货退款原因<span class="required">*</span></label>
+        <textarea id="aftersale-reason" rows="2"></textarea>
+    </div>
+    <div class="form-group">
+        <label>备注</label>
+        <textarea id="aftersale-note" rows="3"></textarea>
+    </div>
+
+    <button id="submit-btn" onclick="addAftersale()">提交售后记录</button>
+    <button id="save-btn" class="save-btn" onclick="saveAftersale()" style="display:none;">保存修改</button>
+    <button id="cancel-btn" class="cancel-btn" onclick="cancelEdit()" style="display:none;">取消编辑</button>
+
+    <div class="list" id="aftersale-list"></div>
+</div>
+
+<!-- 成本计算器 -->
+<div id="cost" class="tab-content">
+    <h3>淘金币成本计算器</h3>
+    <div class="calc-box">
+        <div class="calc-row">
+            <div class="calc-item">
+                <label>原价（元）</label>
+                <input type="number" step="0.01" id="cost-original" placeholder="例如：79.88" oninput="calcFinalPrice()">
+            </div>
+            <div class="calc-item">
+                <label>促销价（元）</label>
+                <input type="number" step="0.01" id="cost-promotion" placeholder="例如：60.98" oninput="calcFinalPrice()">
+            </div>
+            <div class="calc-item">
+                <label>淘金币比例</label>
+                <div class="percent-wrap">
+                    <input type="number" step="0.01" id="gold-rate" value="2" oninput="calcFinalPrice()">
+                    <span>%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-row">
+            <div class="result-item">
+                淘金币抵扣金额：<strong id="gold-amount">0.00</strong> 元
+            </div>
+            <div class="result-item">
+                最终促销价：<strong id="final-price">0.00</strong> 元
+            </div>
+        </div>
+    </div>
+
+    <!-- 新品/新客礼金计算器（最终版） -->
+    <div class="gift-calc-box">
+        <h4>新品/新客礼金计算器（原价算礼金，促销价算实收）</h4>
+        <div class="calc-row">
+            <div class="calc-item">
+                <label>原价标价（元）<br><small>礼金按它算</small></label>
+                <input type="number" step="0.01" id="gift-price" placeholder="例如：44.9" oninput="calcGiftPrice()">
+            </div>
+            <div class="calc-item">
+                <label>促销价（元）<br><small>实付按它算</small></label>
+                <input type="number" step="0.01" id="gift-sale-price" placeholder="例如：39.9" oninput="calcGiftPrice()">
+            </div>
+            <div class="calc-item">
+                <label>让利比例</label>
+                <select id="gift-rate" onchange="calcGiftPrice()">
+                    <option value="10">10%</option>
+                    <option value="15">15%</option>
+                    <option value="20">20%</option>
+                    <option value="25">25%</option>
+                </select>
+            </div>
+            <div class="calc-item">
+                <label>技术服务费比例</label>
+                <div class="percent-wrap">
+                    <input type="number" step="0.01" id="gift-service-rate" value="30" oninput="calcGiftPrice()">
+                    <span>%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-row" style="margin-top:15px;">
+            <div class="result-item">1. 新品礼金（原价×比例×1.2向上取整）：<strong id="gift-amount">0.00</strong> 元</div>
+            <div class="result-item">2. 技术服务费（礼金×比例）：<strong id="gift-service-fee">0.00</strong> 元</div>
+            <div class="result-item">3. 消费者实际付款（促销价−礼金）：<strong id="gift-user-pay">0.00</strong> 元</div>
+            <div class="result-item">4. 商家实收（只扣礼金）：<strong id="gift-merchant-1">0.00</strong> 元</div>
+            <div class="result-item">5. 商家实收（扣礼金+服务费）：<strong id="gift-merchant-2">0.00</strong> 元</div>
+        </div>
+    </div>
+
+    <!-- 多多进宝模块 -->
+    <div class="ddjbbox">
+        <h4>多多进宝成本计算器</h4>
+        <div class="calc-row">
+            <div class="calc-item">
+                <label>活动价（元）</label>
+                <input type="number" step="0.01" id="ddjb-activity" placeholder="例如：18.2" oninput="calcDDJB()">
+            </div>
+            <div class="calc-item">
+                <label>佣金比例</label>
+                <div class="percent-wrap">
+                    <input type="number" step="0.01" id="ddjb-commission" value="11" oninput="calcDDJB()">
+                    <span>%</span>
+                </div>
+            </div>
+            <div class="calc-item">
+                <label>软件服务费比例</label>
+                <div class="percent-wrap">
+                    <input type="number" step="0.01" id="ddjb-service" value="3" oninput="calcDDJB()">
+                    <span>%</span>
+                </div>
+            </div>
+            <div class="calc-item">
+                <label>扣点比例</label>
+                <div class="percent-wrap">
+                    <input type="number" step="0.01" id="ddjb-deduct" value="0.6" oninput="calcDDJB()">
+                    <span>%</span>
+                </div>
+            </div>
+            <div class="calc-item">
+                <label>预估成本（元）</label>
+                <input type="number" step="0.01" id="ddjb-cost" placeholder="例如：15" oninput="calcDDJB()">
+            </div>
+        </div>
+
+        <div class="result-row">
+            <div class="result-item">1. 实际价格（活动价 - 佣金 - 软件服务费）：<strong id="ddjb-real-price">0.00</strong> 元</div>
+            <div class="result-item">2. 实际剩余（实际价格 - 扣点）：<strong id="ddjb-real-remain">0.00</strong> 元</div>
+            <div class="result-item">3. 盈利（实际剩余 - 预估成本）：<strong id="ddjb-profit">0.00</strong> 元</div>
+        </div>
+    </div>
+
+    <!-- 拼多多价格设定模块 -->
+    <div class="pddpricebox">
+        <h4>拼多多价格设定</h4>
+        <div class="calc-row">
+            <div class="calc-item">
+                <label>实际拼单价（元）</label>
+                <input type="number" step="0.01" id="pdd-real" placeholder="例如：60.98" oninput="calcPDDPrice()">
+            </div>
+            <div class="calc-item">
+                <label>折扣</label>
+                <div class="percent-wrap">
+                    <input type="number" step="0.01" id="pdd-discount" value="60" oninput="calcPDDPrice()">
+                    <span>%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-row">
+            <div class="result-item">原拼单价（实际拼单价 ÷ 折扣）：<strong id="pdd-original">0.00</strong> 元</div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增费用登记模块 -->
+<div id="expense" class="tab-content">
+    <div class="filter-bar">
+        <div class="filter-item">
+            <label>日期</label>
+            <input type="date" id="filter-expense-date">
+        </div>
+        <div class="filter-item">
+            <label>平台</label>
+            <select id="filter-expense-platform">
+                <option value="">全部</option>
+                <option value="淘宝">淘宝</option>
+                <option value="拼多多">拼多多</option>
+                <option value="京东">京东</option>
+                <option value="抖音">抖音</option>
+                <option value="快手">快手</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>订单编号</label>
+            <input type="text" id="filter-expense-order" placeholder="订单号">
+        </div>
+        <div class="filter-item">
+            <label>费用名称</label>
+            <input type="text" id="filter-expense-name" placeholder="费用名称">
+        </div>
+        <button class="filter-btn" onclick="doExpenseFilter()">筛选</button>
+        <button class="filter-btn reset" onclick="resetExpenseFilter()">重置</button>
+        <button class="filter-btn export-btn" onclick="exportExpenseExcel()">导出Excel</button>
+    </div>
+
+    <input type="hidden" id="edit-expense-id" value="">
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>日期<span class="required">*</span></label>
+            <input type="date" id="expense-date" value="">
+        </div>
+        <div class="form-group">
+            <label>平台<span class="required">*</span></label>
+            <select id="expense-platform">
+                <option value="">请选择</option>
+                <option value="淘宝">淘宝</option>
+                <option value="拼多多">拼多多</option>
+                <option value="京东">京东</option>
+                <option value="抖音">抖音</option>
+                <option value="快手">快手</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>订单编号<span class="required">*</span></label>
+            <input type="text" id="expense-order" placeholder="填写订单编号">
+        </div>
+        <div class="form-group">
+            <label>费用名称<span class="required">*</span></label>
+            <input type="text" id="expense-name" placeholder="例如：运费、推广费、服务费">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>金额（元）<span class="required">*</span></label>
+            <input type="number" step="0.01" id="expense-amount" placeholder="例如：10.50">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>备注</label>
+        <textarea id="expense-note" rows="3" placeholder="填写备注信息"></textarea>
+    </div>
+
+    <button id="expense-submit-btn" onclick="addExpense()">提交费用记录</button>
+    <button id="expense-save-btn" class="save-btn" onclick="saveExpense()" style="display:none;">保存修改</button>
+    <button id="expense-cancel-btn" class="cancel-btn" onclick="cancelExpenseEdit()" style="display:none;">取消编辑</button>
+
+    <!-- 金额合计区域 -->
+    <div class="total-amount" id="expense-total">
+        合计金额：¥0.00
+    </div>
+
+    <div class="list" id="expense-list"></div>
+</div>
+
+<script>
+let isEditing = false;
+let isExpenseEditing = false; // 费用编辑状态
+
+// 初始化日期为当天
+window.onload = function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('aftersale-date').value = today;
+    document.getElementById('expense-date').value = today;
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+    event.target.classList.add('active');
+    if (tabName === 'schedule') loadSchedules();
+    if (tabName === 'aftersale') {
+        cancelEdit();
+        doFilter();
+    }
+    if (tabName === 'expense') { // 切换到费用登记时加载数据
+        cancelExpenseEdit();
+        doExpenseFilter();
+    }
+}
+
+// 日程相关
+function addSchedule() {
+    const title = document.getElementById('schedule-title').value;
+    const time = document.getElementById('schedule-time').value;
+    const note = document.getElementById('schedule-note').value;
+    if (!title || !time) { alert('请填写完整'); return; }
+    const item = {id:Date.now(), title, time, note, createTime:new Date().toLocaleString()};
+    let list = JSON.parse(localStorage.getItem('schedules')||'[]');
+    list.push(item); localStorage.setItem('schedules',JSON.stringify(list));
+    document.getElementById('schedule-title').value='';
+    document.getElementById('schedule-time').value='';
+    document.getElementById('schedule-note').value='';
+    loadSchedules(); alert('添加成功');
+}
+function loadSchedules() {
+    const el = document.getElementById('schedule-list');
+    let list = JSON.parse(localStorage.getItem('schedules')||'[]');
+    if(list.length===0){el.innerHTML='<p>暂无日程</p>';return;}
+    el.innerHTML='';
+    list.forEach(i=>{
+        el.innerHTML+=`
+        <div class="item">
+            <h3>${i.title}</h3>
+            <p>时间：${i.time}</p>
+            <p>备注：${i.note||'无'}</p>
+            <span class="delete" onclick="deleteSchedule(${i.id})">删除</span>
+        </div>`;
+    });
+}
+function deleteSchedule(id){
+    if(!confirm('确定删除？'))return;
+    let list=JSON.parse(localStorage.getItem('schedules')||'[]');
+    list=list.filter(i=>i.id!=id);
+    localStorage.setItem('schedules',JSON.stringify(list));
+    loadSchedules();
+}
+
+// 物流官网链接
+function getLogisticsHomeUrl(logistics) {
+    if (!logistics) return '';
+    switch(logistics.trim()) {
+        case '顺丰': return 'https://www.sf-express.com/cn/';
+        case '中通': return 'https://www.zto.com/';
+        case '圆通': return 'https://www.yto.net.cn/';
+        case '韵达': return 'https://www.yundaex.com/';
+        case '申通': return 'https://www.sto.cn/';
+        case '极兔': return 'https://www.jtexpress.com.cn/';
+        case '邮政': return 'https://www.11183.com.cn/';
+        default: return 'https://www.kuaidi100.com/';
+    }
+}
+
+// 售后表单数据获取
+function getFormData() {
+    return {
+        platform: document.getElementById('aftersale-platform').value,
+        date: document.getElementById('aftersale-date').value,
+        status: document.getElementById('aftersale-status').value,
+        orderNo: document.getElementById('aftersale-order').value,
+        productId: document.getElementById('aftersale-product-id').value,
+        productName: document.getElementById('aftersale-product-name').value,
+        refundId: document.getElementById('aftersale-refund-id').value,
+        logistics: document.getElementById('aftersale-logistics').value,
+        logisticsNo: document.getElementById('aftersale-logistics-no').value,
+        received: document.getElementById('aftersale-received').value,
+        refunded: document.getElementById('aftersale-refunded').value,
+        freight: document.getElementById('aftersale-freight').value,
+        amount: document.getElementById('aftersale-amount').value,
+        reason: document.getElementById('aftersale-reason').value,
+        note: document.getElementById('aftersale-note').value
+    };
+}
+
+// 售后记录操作
+function addAftersale() {
+    const d = getFormData();
+    if(!d.platform || !d.date || !d.orderNo || !d.productName || !d.reason || !d.status){
+        alert('带*为必填项，请填写完整！');
+        return;
+    }
+    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
+    list.push({...d, id:Date.now(), createTime:new Date().toLocaleString()});
+    localStorage.setItem('aftersales', JSON.stringify(list));
+    resetAftersaleForm();
+    doFilter();
+    alert('保存成功');
+}
+
+function editAftersale(id) {
+    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
+    const item = list.find(x => x.id === id);
+    if(!item) return;
+    document.getElementById('edit-aftersale-id').value = id;
+    document.getElementById('aftersale-platform').value = item.platform;
+    document.getElementById('aftersale-date').value = item.date;
+    document.getElementById('aftersale-status').value = item.status;
+    document.getElementById('aftersale-order').value = item.orderNo;
+    document.getElementById('aftersale-product-id').value = item.productId||'';
+    document.getElementById('aftersale-product-name').value = item.productName;
+    document.getElementById('aftersale-refund-id').value = item.refundId||'';
+    document.getElementById('aftersale-logistics').value = item.logistics||'';
+    document.getElementById('aftersale-logistics-no').value = item.logisticsNo||'';
+    document.getElementById('aftersale-received').value = item.received||'';
+    document.getElementById('aftersale-refunded').value = item.refunded||'';
+    document.getElementById('aftersale-freight').value = item.freight||'';
+    document.getElementById('aftersale-amount').value = item.amount||'';
+    document.getElementById('aftersale-reason').value = item.reason;
+    document.getElementById('aftersale-note').value = item.note||'';
+
+    isEditing = true;
+    document.getElementById('submit-btn').style.display = 'none';
+    document.getElementById('save-btn').style.display = 'block';
+    document.getElementById('cancel-btn').style.display = 'block';
+}
+
+function saveAftersale() {
+    const id = Number(document.getElementById('edit-aftersale-id').value);
+    const d = getFormData();
+    if(!d.platform || !d.date || !d.orderNo || !d.productName || !d.reason || !d.status){
+        alert('请填写完整！');
+        return;
+    }
+    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
+    list = list.map(x => x.id === id ? {...x, ...d} : x);
+    localStorage.setItem('aftersales', JSON.stringify(list));
+    cancelEdit();
+    doFilter();
+    alert('修改成功');
+}
+
+function cancelEdit() {
+    isEditing = false;
+    document.getElementById('edit-aftersale-id').value = '';
+    resetAftersaleForm();
+    document.getElementById('submit-btn').style.display = 'block';
+    document.getElementById('save-btn').style.display = 'none';
+    document.getElementById('cancel-btn').style.display = 'none';
+}
+
+function deleteAftersale(id){
+    if(!confirm('确定删除？'))return;
+    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
+    list = list.filter(x => x.id !== id);
+    localStorage.setItem('aftersales', JSON.stringify(list));
+    doFilter();
+}
+
+function resetAftersaleForm() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('aftersale-platform').value = '';
+    document.getElementById('aftersale-date').value = today;
+    document.getElementById('aftersale-status').value = '';
+    document.getElementById('aftersale-order').value = '';
+    document.getElementById('aftersale-product-id').value = '';
+    document.getElementById('aftersale-product-name').value = '';
+    document.getElementById('aftersale-refund-id').value = '';
+    document.getElementById('aftersale-logistics').value = '';
+    document.getElementById('aftersale-logistics-no').value = '';
+    document.getElementById('aftersale-received').value = '';
+    document.getElementById('aftersale-refunded').value = '';
+    document.getElementById('aftersale-freight').value = '';
+    document.getElementById('aftersale-amount').value = '';
+    document.getElementById('aftersale-reason').value = '';
+    document.getElementById('aftersale-note').value = '';
+}
+
+// 售后筛选
+function doFilter() {
+    const fp = document.getElementById('filter-platform').value.trim();
+    const fs = document.getElementById('filter-status').value.trim();
+    const fo = document.getElementById('filter-order').value.trim().toLowerCase();
+    const fl = document.getElementById('filter-logistics').value.trim();
+    const fn = document.getElementById('filter-logistics-no').value.trim().toLowerCase();
+    const fd = document.getElementById('filter-date').value.trim();
+
+    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
+    let result = list.filter(item => {
+        if (fp && item.platform !== fp) return false;
+        if (fs && item.status !== fs) return false;
+        if (fo && !item.orderNo.toLowerCase().includes(fo)) return false;
+        if (fl && item.logistics !== fl) return false;
+        if (fn && item.logisticsNo && !item.logisticsNo.toLowerCase().includes(fn)) return false;
+        if (fd && item.date !== fd) return false;
+        return true;
+    });
+    renderList(result);
+}
+
+function resetFilter() {
+    document.getElementById('filter-platform').value = '';
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-order').value = '';
+    document.getElementById('filter-logistics').value = '';
+    document.getElementById('filter-logistics-no').value = '';
+    document.getElementById('filter-date').value = '';
+    doFilter();
+}
+
+function renderList(data) {
+    const el = document.getElementById('aftersale-list');
+    if (data.length === 0) {
+        el.innerHTML = '<p>暂无符合条件的售后记录</p>';
+        return;
+    }
+    data.reverse();
+    let html = '';
+    data.forEach(item => {
+        const url = getLogisticsHomeUrl(item.logistics);
+        const logisticsHtml = url ? `<a href="${url}" target="_blank" class="tracking-link">${item.logistics}</a>` : (item.logistics||'-');
+        html += `
+        <div class="item">
+            <h3>${item.platform}｜订单：${item.orderNo}</h3>
+            <p><strong>售后状态：</strong><span style="color:red;font-weight:bold">${item.status}</span></p>
+            <p><strong>日期：</strong>${item.date}｜<strong>商品：</strong>${item.productName}</p>
+            <p><strong>退款：</strong>${item.refundId||'无'}｜${item.amount||0}元｜${item.refunded||'-'}</p>
+            <p><strong>物流：</strong>${logisticsHtml}｜单号：${item.logisticsNo||'无'}</p>
+            <p><strong>收货：</strong>${item.received||'-'}｜<strong>运费：</strong>${item.freight||'-'}</p>
+            <p><strong>原因：</strong>${item.reason}</p>
+            <p><strong>备注：</strong>${item.note||'无'}</p>
+            <div class="btn-group">
+                <span class="edit" onclick="editAftersale(${item.id})">编辑</span>
+                <span class="delete" onclick="deleteAftersale(${item.id})">删除</span>
+            </div>
+        </div>`;
+    });
+    el.innerHTML = html;
+}
+
+// 成本计算器相关
+function calcFinalPrice() {
+    const original = parseFloat(document.getElementById('cost-original').value) || 0;
+    const promotion = parseFloat(document.getElementById('cost-promotion').value) || 0;
+    const rate = parseFloat(document.getElementById('gold-rate').value) || 0;
+    
+    const goldAmount = (promotion * rate / 100).toFixed(2);
+    const finalPrice = (promotion - goldAmount).toFixed(2);
+    
+    document.getElementById('gold-amount').textContent = goldAmount;
+    document.getElementById('final-price').textContent = finalPrice;
+}
+
+function calcGiftPrice() {
+    const giftPrice = parseFloat(document.getElementById('gift-price').value) || 0;
+    const giftSalePrice = parseFloat(document.getElementById('gift-sale-price').value) || 0;
+    const giftRate = parseFloat(document.getElementById('gift-rate').value) || 0;
+    const giftServiceRate = parseFloat(document.getElementById('gift-service-rate').value) || 0;
+    
+    // 新品礼金 = 原价 × 比例 × 1.2 向上取整
+    let giftAmount = giftPrice * giftRate / 100 * 1.2;
+    giftAmount = Math.ceil(giftAmount * 100) / 100; // 向上取整保留2位小数
+    
+    // 技术服务费 = 礼金 × 服务费比例
+    const giftServiceFee = (giftAmount * giftServiceRate / 100).toFixed(2);
+    
+    // 消费者实际付款 = 促销价 - 礼金
+    const giftUserPay = (giftSalePrice - giftAmount).toFixed(2);
+    
+    // 商家实收（只扣礼金）
+    const giftMerchant1 = (giftSalePrice - giftAmount).toFixed(2);
+    
+    // 商家实收（扣礼金+服务费）
+    const giftMerchant2 = (giftSalePrice - giftAmount - parseFloat(giftServiceFee)).toFixed(2);
+    
+    document.getElementById('gift-amount').textContent = giftAmount.toFixed(2);
+    document.getElementById('gift-service-fee').textContent = giftServiceFee;
+    document.getElementById('gift-user-pay').textContent = giftUserPay;
+    document.getElementById('gift-merchant-1').textContent = giftMerchant1;
+    document.getElementById('gift-merchant-2').textContent = giftMerchant2;
+}
+
+function calcDDJB() {
+    const activity = parseFloat(document.getElementById('ddjb-activity').value) || 0;
+    const commission = parseFloat(document.getElementById('ddjb-commission').value) || 0;
+    const service = parseFloat(document.getElementById('ddjb-service').value) || 0;
+    const deduct = parseFloat(document.getElementById('ddjb-deduct').value) || 0;
+    const cost = parseFloat(document.getElementById('ddjb-cost').value) || 0;
+    
+    // 佣金金额
+    const commissionAmount = activity * commission / 100;
+    // 软件服务费金额
+    const serviceAmount = activity * service / 100;
+    // 实际价格 = 活动价 - 佣金 - 软件服务费
+    const realPrice = (activity - commissionAmount - serviceAmount).toFixed(2);
+    // 扣点金额
+    const deductAmount = parseFloat(realPrice) * deduct / 100;
+    // 实际剩余 = 实际价格 - 扣点
+    const realRemain = (parseFloat(realPrice) - deductAmount).toFixed(2);
+    // 盈利 = 实际剩余 - 预估成本
+    const profit = (parseFloat(realRemain) - cost).toFixed(2);
+    
+    document.getElementById('ddjb-real-price').textContent = realPrice;
+    document.getElementById('ddjb-real-remain').textContent = realRemain;
+    document.getElementById('ddjb-profit').textContent = profit;
+}
+
+function calcPDDPrice() {
+    const real = parseFloat(document.getElementById('pdd-real').value) || 0;
+    const discount = parseFloat(document.getElementById('pdd-discount').value) || 0;
+    
+    if (discount === 0) {
+        document.getElementById('pdd-original').textContent = '0.00';
+        return;
+    }
+    
+    const original = (real / (discount / 100)).toFixed(2);
+    document.getElementById('pdd-original').textContent = original;
+}
+
+// ------------------------ 新增费用登记相关逻辑 ------------------------
+// 费用表单数据获取
+function getExpenseFormData() {
+    return {
+        date: document.getElementById('expense-date').value,
+        platform: document.getElementById('expense-platform').value,
+        orderNo: document.getElementById('expense-order').value,
+        name: document.getElementById('expense-name').value,
+        amount: document.getElementById('expense-amount').value,
+        note: document.getElementById('expense-note').value
+    };
+}
+
+// 添加费用记录
+function addExpense() {
+    const d = getExpenseFormData();
+    // 验证必填项
+    if(!d.date || !d.platform || !d.orderNo || !d.name || !d.amount){
+        alert('带*为必填项，请填写完整！');
+        return;
+    }
+    // 验证金额为正数
+    if (parseFloat(d.amount) <= 0) {
+        alert('金额必须大于0！');
+        return;
+    }
+    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
+    list.push({...d, id:Date.now(), createTime:new Date().toLocaleString()});
+    localStorage.setItem('expenses', JSON.stringify(list));
+    resetExpenseForm();
+    doExpenseFilter();
+    alert('保存成功');
+}
+
+// 编辑费用记录
+function editExpense(id) {
+    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
+    const item = list.find(x => x.id === id);
+    if(!item) return;
+    document.getElementById('edit-expense-id').value = id;
+    document.getElementById('expense-date').value = item.date;
+    document.getElementById('expense-platform').value = item.platform;
+    document.getElementById('expense-order').value = item.orderNo;
+    document.getElementById('expense-name').value = item.name;
+    document.getElementById('expense-amount').value = item.amount;
+    document.getElementById('expense-note').value = item.note||'';
+
+    isExpenseEditing = true;
+    document.getElementById('expense-submit-btn').style.display = 'none';
+    document.getElementById('expense-save-btn').style.display = 'block';
+    document.getElementById('expense-cancel-btn').style.display = 'block';
+}
+
+// 保存编辑的费用记录
+function saveExpense() {
+    const id = Number(document.getElementById('edit-expense-id').value);
+    const d = getExpenseFormData();
+    if(!d.date || !d.platform || !d.orderNo || !d.name || !d.amount){
+        alert('请填写完整！');
+        return;
+    }
+    if (parseFloat(d.amount) <= 0) {
+        alert('金额必须大于0！');
+        return;
+    }
+    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
+    list = list.map(x => x.id === id ? {...x, ...d} : x);
+    localStorage.setItem('expenses', JSON.stringify(list));
+    cancelExpenseEdit();
+    doExpenseFilter();
+    alert('修改成功');
+}
+
+// 取消费用编辑
+function cancelExpenseEdit() {
+    isExpenseEditing = false;
+    document.getElementById('edit-expense-id').value = '';
+    resetExpenseForm();
+    document.getElementById('expense-submit-btn').style.display = 'block';
+    document.getElementById('expense-save-btn').style.display = 'none';
+    document.getElementById('expense-cancel-btn').style.display = 'none';
+}
+
+// 删除费用记录
+function deleteExpense(id){
+    if(!confirm('确定删除？'))return;
+    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
+    list = list.filter(x => x.id !== id);
+    localStorage.setItem('expenses', JSON.stringify(list));
+    doExpenseFilter();
+}
+
+// 重置费用表单
+function resetExpenseForm() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('expense-date').value = today;
+    document.getElementById('expense-platform').value = '';
+    document.getElementById('expense-order').value = '';
+    document.getElementById('expense-name').value = '';
+    document.getElementById('expense-amount').value = '';
+    document.getElementById('expense-note').value = '';
+}
+
+// 费用筛选
+function doExpenseFilter() {
+    const fd = document.getElementById('filter-expense-date').value.trim();
+    const fp = document.getElementById('filter-expense-platform').value.trim();
+    const fo = document.getElementById('filter-expense-order').value.trim().toLowerCase();
+    const fn = document.getElementById('filter-expense-name').value.trim().toLowerCase();
+
+    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
+    let result = list.filter(item => {
+        if (fd && item.date !== fd) return false;
+        if (fp && item.platform !== fp) return false;
+        if (fo && !item.orderNo.toLowerCase().includes(fo)) return false;
+        if (fn && !item.name.toLowerCase().includes(fn)) return false;
+        return true;
+    });
+    renderExpenseList(result);
+    calculateExpenseTotal(result); // 计算合计金额
+}
+
+// 重置费用筛选
+function resetExpenseFilter() {
+    document.getElementById('filter-expense-date').value = '';
+    document.getElementById('filter-expense-platform').value = '';
+    document.getElementById('filter-expense-order').value = '';
+    document.getElementById('filter-expense-name').value = '';
+    doExpenseFilter();
+}
+
+// 渲染费用列表
+function renderExpenseList(data) {
+    const el = document.getElementById('expense-list');
+    if (data.length === 0) {
+        el.innerHTML = '<p>暂无符合条件的费用记录</p>';
+        return;
+    }
+    data.reverse();
+    let html = '';
+    data.forEach(item => {
+        html += `
+        <div class="item">
+            <h3>${item.platform}｜订单：${item.orderNo}</h3>
+            <p><strong>日期：</strong>${item.date}</p>
+            <p><strong>费用名称：</strong>${item.name}</p>
+            <p><strong>金额：</strong>¥${item.amount}</p>
+            <p><strong>备注：</strong>${item.note||'无'}</p>
+            <div class="btn-group">
+                <span class="edit" onclick="editExpense(${item.id})">编辑</span>
+                <span class="delete" onclick="deleteExpense(${item.id})">删除</span>
+            </div>
+        </div>`;
+    });
+    el.innerHTML = html;
+}
+
+// 计算费用合计
+function calculateExpenseTotal(data) {
+    let total = 0;
+    data.forEach(item => {
+        total += parseFloat(item.amount) || 0;
+    });
+    document.getElementById('expense-total').textContent = `合计金额：¥${total.toFixed(2)}`;
+}
+
+// ------------------------ Excel导出相关 ------------------------
+// 通用Excel导出方法
+function exportToExcel(headers, rows, fileName) {
+    // 创建CSV内容
+    let csvContent = "data:text/csv;charset=utf-8,";
+    // 添加表头
+    csvContent += headers.join(",") + "\n";
+    // 添加行数据
+    rows.forEach(row => {
+        // 处理包含逗号的内容，用双引号包裹
+        const formattedRow = row.map(cell => {
+            if (cell.toString().includes(',')) {
+                return `"${cell}"`;
+            }
+            return cell;
+        });
+        csvContent += formattedRow.join(",") + "\n";
+    });
+    // 编码并下载
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// 售后记录导出Excel
+function exportAftersaleExcel() {
+    const list = JSON.parse(localStorage.getItem('aftersales') || '[]');
+    if (list.length === 0) {
+        alert('暂无售后数据可导出');
+        return;
+    }
+
+    const headers = [
+        '平台', '申请日期', '售后状态', '订单号', '产品ID', '产品名称',
+        '退款编号', '物流', '物流单号', '是否收货', '是否退款',
+        '运费赔付', '退款金额', '退款原因', '备注', '录入时间'
+    ];
+
+    const rows = list.map(item => [
+        item.platform || '',
+        item.date || '',
+        item.status || '',
+        item.orderNo || '',
+        item.productId || '',
+        item.productName || '',
+        item.refundId || '',
+        item.logistics || '',
+        item.logisticsNo || '',
+        item.received || '',
+        item.refunded || '',
+        item.freight || '',
+        item.amount || '',
+        item.reason || '',
+        item.note || '',
+        item.createTime || ''
+    ]);
+
+    exportToExcel(headers, rows, '售后记录_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.csv');
+}
+
+// 费用记录导出Excel
+function exportExpenseExcel() {
+    const list = JSON.parse(localStorage.getItem('expenses') || '[]');
+    if (list.length === 0) {
+        alert('暂无费用数据可导出');
+        return;
+    }
+
+    const headers = ['日期', '平台', '订单编号', '费用名称', '金额（元）', '备注', '录入时间'];
+
+    const rows = list.map(item => [
+        item.date || '',
+        item.platform || '',
+        item.orderNo || '',
+        item.name || '',
+        item.amount || '',
+        item.note || '',
+        item.createTime || ''
+    ]);
+
+    exportToExcel(headers, rows, '费用记录_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.csv');
+}
+</script>
+</body>
+</html>
