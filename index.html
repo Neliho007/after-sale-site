@@ -1,37 +1,3 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>售后管理工具</title>
-    <!-- 这里放你原来的 CSS/JS 引用 -->
-</head>
-<body>
-    <!-- 👇 把这段密码验证代码放在 <body> 最开始的位置 -->
-    <script>
-        // 自定义你的访问密码（改成你自己的）
-        const MY_PASSWORD = "!Kg115928";
-        let input = prompt("请输入访问密码：");
-        
-        // 验证失败则显示无权限
-        if (input !== MY_PASSWORD) {
-            document.body.innerHTML = `
-                <h1>🔒 无访问权限</h1>
-                <p>请联系管理员获取访问密码</p>
-            `;
-            // 阻止后续页面加载
-            document.body.style.pointerEvents = "none";
-        }
-    </script>
-
-    <!-- 👇 下面是你原来的页面代码 -->
-    <div id="app">
-        <!-- 你的所有页面内容 -->
-    </div>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1381,38 +1347,58 @@ function exportExpenseExcel() {
 </script>
 </body>
 </html>
-<!-- 全能数据管理：整站导出 + 分项目导出 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人管理工具</title>
+    <style>
+        /* 基础样式，不影响你原有功能 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 🔒 访问密码保护（只有输入正确密码才能进网站） -->
+<script>
+// ========== 在这里修改你的密码 ==========
+const MY_PASSWORD = "!Kg115928"; 
+// ======================================
+
+let inputPwd = prompt("请输入访问密码：");
+if (inputPwd !== MY_PASSWORD) {
+    document.body.innerHTML = "<h1>🔒 无访问权限</h1>";
+    throw new Error("访问未授权");
+}
+</script>
+
+<!-- 📂 极简版：一次性导出 + 导入所有数据 -->
 <div style="margin: 20px 0; padding: 15px; background: #f5f7fa; border-radius: 8px;">
-  <div style="font-weight: bold; margin-bottom: 10px;">📂 数据备份与恢复</div>
+  <div style="font-weight: bold; margin-bottom: 10px;">📂 全站数据备份/恢复</div>
   
-  <!-- 整站一次性导出所有数据 -->
-  <button onclick="exportAllData()" style="padding:6px 12px; margin:5px; background:#409eff; color:white; border:none; border-radius:4px; cursor:pointer;">
+  <button onclick="exportAllData()" style="padding:8px 16px; margin-right:10px; background:#409eff; color:white; border:none; border-radius:4px; cursor:pointer;">
     🔄 一次性导出所有数据
   </button>
 
-  <!-- 分项目导出 -->
-  <button onclick="exportSingle('afterSaleRecords', '售后登记数据')" style="padding:6px 12px; margin:5px; background:#67c23a; color:white; border:none; border-radius:4px; cursor:pointer;">
-    📝 导出 售后登记
-  </button>
-  <button onclick="exportSingle('scheduleData', '日程提醒数据')" style="padding:6px 12px; margin:5px; background:#e6a23c; color:white; border:none; border-radius:4px; cursor:pointer;">
-    📅 导出 日程提醒
-  </button>
-  <button onclick="exportSingle('costData', '成本计算器数据')" style="padding:6px 12px; margin:5px; background:#f56c6c; color:white; border:none; border-radius:4px; cursor:pointer;">
-    💰 导出 成本计算器
-  </button>
-  <button onclick="exportSingle('expenseData', '费用登记数据')" style="padding:6px 12px; margin:5px; background:#909399; color:white; border:none; border-radius:4px; cursor:pointer;">
-    🧾 导出 费用登记
-  </button>
-
-  <!-- 导入 -->
-  <input type="file" id="fileInput" accept=".json" style="display:none;" onchange="importData(event)">
-  <button onclick="document.getElementById('fileInput').click()" style="padding:6px 12px; margin:5px; background:#303133; color:white; border:none; border-radius:4px; cursor:pointer;">
-    📤 选择文件导入（支持整站+单项目）
+  <input type="file" id="fileInput" accept=".json" style="display:none;" onchange="importAllData(event)">
+  <button onclick="document.getElementById('fileInput').click()" style="padding:8px 16px; background:#303133; color:white; border:none; border-radius:4px; cursor:pointer;">
+    📤 选择文件导入所有数据
   </button>
 </div>
 
 <script>
-// 一次性导出所有项目数据（整站备份）
+// 一次性导出所有数据（售后+日程+成本+费用）
 function exportAllData() {
   const allData = {
     afterSaleRecords: localStorage.getItem('afterSaleRecords'),
@@ -1429,51 +1415,22 @@ function exportAllData() {
   URL.revokeObjectURL(url);
 }
 
-// 单独导出某个项目
-function exportSingle(key, name) {
-  const data = localStorage.getItem(key);
-  if (!data) {
-    alert(name + ' 暂无数据');
-    return;
-  }
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name + '_' + new Date().getTime() + '.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// 导入（自动识别：整站 / 单项目）
-function importData(event) {
+// 导入所有数据（自动恢复全部模块）
+function importAllData(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const result = e.target.result;
-      const json = JSON.parse(result);
+      const json = JSON.parse(e.target.result);
 
-      // 判断是整站数据还是单项目数据
-      if (json.afterSaleRecords || json.scheduleData || json.costData || json.expenseData) {
-        // 整站导入
-        if (json.afterSaleRecords) localStorage.setItem('afterSaleRecords', json.afterSaleRecords);
-        if (json.scheduleData) localStorage.setItem('scheduleData', json.scheduleData);
-        if (json.costData) localStorage.setItem('costData', json.costData);
-        if (json.expenseData) localStorage.setItem('expenseData', json.expenseData);
-        alert('✅ 整站数据导入成功！');
-      } else {
-        // 单项目导入（自动匹配）
-        if (Array.isArray(json)) {
-          if (json[0]?.customerName) localStorage.setItem('afterSaleRecords', result);
-          else if (json[0]?.title) localStorage.setItem('scheduleData', result);
-          else if (json[0]?.productName) localStorage.setItem('costData', result);
-          else if (json[0]?.type) localStorage.setItem('expenseData', result);
-        }
-        alert('✅ 单项目数据导入成功！');
-      }
+      if (json.afterSaleRecords) localStorage.setItem('afterSaleRecords', json.afterSaleRecords);
+      if (json.scheduleData) localStorage.setItem('scheduleData', json.scheduleData);
+      if (json.costData) localStorage.setItem('costData', json.costData);
+      if (json.expenseData) localStorage.setItem('expenseData', json.expenseData);
+
+      alert('✅ 所有数据导入成功！页面即将刷新');
       location.reload();
     } catch (err) {
       alert('❌ 导入失败：文件格式错误');
@@ -1482,3 +1439,13 @@ function importData(event) {
   reader.readAsText(file);
 }
 </script>
+
+<!-- ============================================== -->
+<!-- 👇 下面请粘贴你【原来的所有页面代码】 👇 -->
+<!-- 把你原本的 index.html 里从这里开始的内容全部粘贴进来 -->
+<!-- ============================================== -->
+
+
+
+</body>
+</html>
