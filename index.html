@@ -1381,3 +1381,104 @@ function exportExpenseExcel() {
 </script>
 </body>
 </html>
+<!-- 全能数据管理：整站导出 + 分项目导出 -->
+<div style="margin: 20px 0; padding: 15px; background: #f5f7fa; border-radius: 8px;">
+  <div style="font-weight: bold; margin-bottom: 10px;">📂 数据备份与恢复</div>
+  
+  <!-- 整站一次性导出所有数据 -->
+  <button onclick="exportAllData()" style="padding:6px 12px; margin:5px; background:#409eff; color:white; border:none; border-radius:4px; cursor:pointer;">
+    🔄 一次性导出所有数据
+  </button>
+
+  <!-- 分项目导出 -->
+  <button onclick="exportSingle('afterSaleRecords', '售后登记数据')" style="padding:6px 12px; margin:5px; background:#67c23a; color:white; border:none; border-radius:4px; cursor:pointer;">
+    📝 导出 售后登记
+  </button>
+  <button onclick="exportSingle('scheduleData', '日程提醒数据')" style="padding:6px 12px; margin:5px; background:#e6a23c; color:white; border:none; border-radius:4px; cursor:pointer;">
+    📅 导出 日程提醒
+  </button>
+  <button onclick="exportSingle('costData', '成本计算器数据')" style="padding:6px 12px; margin:5px; background:#f56c6c; color:white; border:none; border-radius:4px; cursor:pointer;">
+    💰 导出 成本计算器
+  </button>
+  <button onclick="exportSingle('expenseData', '费用登记数据')" style="padding:6px 12px; margin:5px; background:#909399; color:white; border:none; border-radius:4px; cursor:pointer;">
+    🧾 导出 费用登记
+  </button>
+
+  <!-- 导入 -->
+  <input type="file" id="fileInput" accept=".json" style="display:none;" onchange="importData(event)">
+  <button onclick="document.getElementById('fileInput').click()" style="padding:6px 12px; margin:5px; background:#303133; color:white; border:none; border-radius:4px; cursor:pointer;">
+    📤 选择文件导入（支持整站+单项目）
+  </button>
+</div>
+
+<script>
+// 一次性导出所有项目数据（整站备份）
+function exportAllData() {
+  const allData = {
+    afterSaleRecords: localStorage.getItem('afterSaleRecords'),
+    scheduleData: localStorage.getItem('scheduleData'),
+    costData: localStorage.getItem('costData'),
+    expenseData: localStorage.getItem('expenseData')
+  };
+  const blob = new Blob([JSON.stringify(allData)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '整站所有数据_' + new Date().getTime() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 单独导出某个项目
+function exportSingle(key, name) {
+  const data = localStorage.getItem(key);
+  if (!data) {
+    alert(name + ' 暂无数据');
+    return;
+  }
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name + '_' + new Date().getTime() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 导入（自动识别：整站 / 单项目）
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const result = e.target.result;
+      const json = JSON.parse(result);
+
+      // 判断是整站数据还是单项目数据
+      if (json.afterSaleRecords || json.scheduleData || json.costData || json.expenseData) {
+        // 整站导入
+        if (json.afterSaleRecords) localStorage.setItem('afterSaleRecords', json.afterSaleRecords);
+        if (json.scheduleData) localStorage.setItem('scheduleData', json.scheduleData);
+        if (json.costData) localStorage.setItem('costData', json.costData);
+        if (json.expenseData) localStorage.setItem('expenseData', json.expenseData);
+        alert('✅ 整站数据导入成功！');
+      } else {
+        // 单项目导入（自动匹配）
+        if (Array.isArray(json)) {
+          if (json[0]?.customerName) localStorage.setItem('afterSaleRecords', result);
+          else if (json[0]?.title) localStorage.setItem('scheduleData', result);
+          else if (json[0]?.productName) localStorage.setItem('costData', result);
+          else if (json[0]?.type) localStorage.setItem('expenseData', result);
+        }
+        alert('✅ 单项目数据导入成功！');
+      }
+      location.reload();
+    } catch (err) {
+      alert('❌ 导入失败：文件格式错误');
+    }
+  };
+  reader.readAsText(file);
+}
+</script>
