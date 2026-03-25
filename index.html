@@ -3,6 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>售后管理工具</title>
+    <!-- 这里放你原来的 CSS/JS 引用 -->
+</head>
+<body>
+    <!-- 👇 把这段密码验证代码放在 <body> 最开始的位置 -->
+    <script>
+        // 自定义你的访问密码（改成你自己的）
+        const MY_PASSWORD = "!Kg115928";
+        let input = prompt("请输入访问密码：");
+        
+        // 验证失败则显示无权限
+        if (input !== MY_PASSWORD) {
+            document.body.innerHTML = `
+                <h1>🔒 无访问权限</h1>
+                <p>请联系管理员获取访问密码</p>
+            `;
+            // 阻止后续页面加载
+            document.body.style.pointerEvents = "none";
+        }
+    </script>
+
+    <!-- 👇 下面是你原来的页面代码 -->
+    <div id="app">
+        <!-- 你的所有页面内容 -->
+    </div>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>售后管理+成本计算器+费用登记</title>
     <style>
         * {
