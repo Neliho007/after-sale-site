@@ -1369,80 +1369,95 @@ function exportExpenseExcel() {
     </style>
 </head>
 <body>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人管理工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
 
-<!-- 🔒 访问密码保护（只有输入正确密码才能进网站） -->
+<!-- 🔒 密码保护：请在这里修改你的密码 -->
 <script>
-// ========== 在这里修改你的密码 ==========
-const MY_PASSWORD = "!Kg115928"; 
-// ======================================
-
+const MY_PASSWORD = "!Kg115928";  // 你可以改成自己的密码
 let inputPwd = prompt("请输入访问密码：");
 if (inputPwd !== MY_PASSWORD) {
     document.body.innerHTML = "<h1>🔒 无访问权限</h1>";
-    throw new Error("访问未授权");
+    throw new Error("无权限访问");
 }
 </script>
 
-<!-- 📂 极简版：一次性导出 + 导入所有数据 -->
+<!-- 📂 一键导出 / 导入所有数据（已匹配你的真实键名） -->
 <div style="margin: 20px 0; padding: 15px; background: #f5f7fa; border-radius: 8px;">
-  <div style="font-weight: bold; margin-bottom: 10px;">📂 全站数据备份/恢复</div>
-  
-  <button onclick="exportAllData()" style="padding:8px 16px; margin-right:10px; background:#409eff; color:white; border:none; border-radius:4px; cursor:pointer;">
-    🔄 一次性导出所有数据
-  </button>
+    <div style="font-weight: bold; margin-bottom: 10px;">📂 全站数据备份/恢复</div>
+    
+    <button onclick="exportAllData()" style="padding:8px 16px; margin-right:10px; background:#409eff; color:white; border:none; border-radius:4px; cursor:pointer;">
+        🔄 一次性导出所有数据
+    </button>
 
-  <input type="file" id="fileInput" accept=".json" style="display:none;" onchange="importAllData(event)">
-  <button onclick="document.getElementById('fileInput').click()" style="padding:8px 16px; background:#303133; color:white; border:none; border-radius:4px; cursor:pointer;">
-    📤 选择文件导入所有数据
-  </button>
+    <input type="file" id="fileInput" accept=".json" style="display:none;" onchange="importAllData(event)">
+    <button onclick="document.getElementById('fileInput').click()" style="padding:8px 16px; background:#303133; color:white; border:none; border-radius:4px; cursor:pointer;">
+        📤 选择文件导入所有数据
+    </button>
 </div>
 
 <script>
-// 一次性导出所有数据（售后+日程+成本+费用）
+// 导出所有数据（售后、费用、日程）
 function exportAllData() {
-  const allData = {
-    afterSaleRecords: localStorage.getItem('afterSaleRecords'),
-    scheduleData: localStorage.getItem('scheduleData'),
-    costData: localStorage.getItem('costData'),
-    expenseData: localStorage.getItem('expenseData')
-  };
-  const blob = new Blob([JSON.stringify(allData)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '整站所有数据_' + new Date().getTime() + '.json';
-  a.click();
-  URL.revokeObjectURL(url);
+    const allData = {
+        aftersales: localStorage.getItem('aftersales'),
+        expenses: localStorage.getItem('expenses'),
+        schedules: localStorage.getItem('schedules')
+    };
+    const blob = new Blob([JSON.stringify(allData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '整站所有数据_' + new Date().getTime() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
-// 导入所有数据（自动恢复全部模块）
+// 导入所有数据（自动恢复到正确位置）
 function importAllData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+    const file = event.target.files[0];
+    if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const json = JSON.parse(e.target.result);
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const json = JSON.parse(e.target.result);
 
-      if (json.afterSaleRecords) localStorage.setItem('afterSaleRecords', json.afterSaleRecords);
-      if (json.scheduleData) localStorage.setItem('scheduleData', json.scheduleData);
-      if (json.costData) localStorage.setItem('costData', json.costData);
-      if (json.expenseData) localStorage.setItem('expenseData', json.expenseData);
+            if (json.aftersales) localStorage.setItem('aftersales', json.aftersales);
+            if (json.expenses) localStorage.setItem('expenses', json.expenses);
+            if (json.schedules) localStorage.setItem('schedules', json.schedules);
 
-      alert('✅ 所有数据导入成功！页面即将刷新');
-      location.reload();
-    } catch (err) {
-      alert('❌ 导入失败：文件格式错误');
-    }
-  };
-  reader.readAsText(file);
+            alert('✅ 所有数据导入成功！页面即将刷新');
+            location.reload();
+        } catch (err) {
+            alert('❌ 导入失败：文件格式错误');
+        }
+    };
+    reader.readAsText(file);
 }
 </script>
 
 <!-- ============================================== -->
-<!-- 👇 下面请粘贴你【原来的所有页面代码】 👇 -->
-<!-- 把你原本的 index.html 里从这里开始的内容全部粘贴进来 -->
+<!-- 👇 👇 把你原来的所有页面代码从这里开始粘贴 👇 👇 -->
 <!-- ============================================== -->
 
 
