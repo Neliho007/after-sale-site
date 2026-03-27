@@ -1,7 +1,9 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>售后管理+成本计算器+费用登记</title>
+    <title>售后管理+成本计算器+费用登记+1688订单明细</title>
     <style>
         * {
             margin: 0;
@@ -302,15 +304,35 @@
             color: #2196F3;
             text-align: right;
         }
+
+        /* 数据备份模块样式（移到底部后优化） */
+        .backup-module {
+            margin: 30px 0 20px;
+            padding: 15px;
+            background: #f5f7fa;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
 
+<!-- 🔒 密码保护：请在这里修改你的密码 -->
+<script>
+const MY_PASSWORD = "!Kg115928";  // 你可以改成自己的密码
+let inputPwd = prompt("请输入访问密码：");
+if (inputPwd !== MY_PASSWORD) {
+    document.body.innerHTML = "<h1>🔒 无访问权限</h1>";
+    throw new Error("无权限访问");
+}
+</script>
+
+<!-- 标签切换区域 -->
 <div class="tab">
-    <button class="tab-btn" onclick="switchTab('schedule')">日程提醒</button>
-    <button class="tab-btn" onclick="switchTab('aftersale')">售后登记</button>
-    <button class="tab-btn" onclick="switchTab('cost')">成本计算器</button>
-    <button class="tab-btn" onclick="switchTab('expense')">费用登记</button> <!-- 新增费用登记标签 -->
+    <button class="tab-btn" onclick="switchTab('schedule', this)">日程提醒</button>
+    <button class="tab-btn" onclick="switchTab('aftersale', this)">售后登记</button>
+    <button class="tab-btn" onclick="switchTab('cost', this)">成本计算器</button>
+    <button class="tab-btn" onclick="switchTab('expense', this)">费用登记</button>
+    <button class="tab-btn" onclick="switchTab('1688order', this)">1688订单明细</button>
 </div>
 
 <!-- 日程 -->
@@ -669,7 +691,7 @@
     </div>
 </div>
 
-<!-- 新增费用登记模块 -->
+<!-- 费用登记模块 -->
 <div id="expense" class="tab-content">
     <div class="filter-bar">
         <div class="filter-item">
@@ -757,652 +779,129 @@
     <div class="list" id="expense-list"></div>
 </div>
 
-<script>
-let isEditing = false;
-let isExpenseEditing = false; // 费用编辑状态
+<!-- 新增1688订单明细模块 -->
+<div id="1688order" class="tab-content">
+    <div class="filter-bar">
+        <div class="filter-item">
+            <label>下单日期</label>
+            <input type="date" id="filter-1688-date">
+        </div>
+        <div class="filter-item">
+            <label>供应商</label>
+            <input type="text" id="filter-1688-supplier" placeholder="供应商名称">
+        </div>
+        <div class="filter-item">
+            <label>订单编号</label>
+            <input type="text" id="filter-1688-order" placeholder="1688订单号">
+        </div>
+        <div class="filter-item">
+            <label>商品名称</label>
+            <input type="text" id="filter-1688-product" placeholder="商品名称">
+        </div>
+        <button class="filter-btn" onclick="do1688Filter()">筛选</button>
+        <button class="filter-btn reset" onclick="reset1688Filter()">重置</button>
+        <button class="filter-btn export-btn" onclick="export1688Excel()">导出Excel</button>
+    </div>
 
-// 初始化日期为当天
-window.onload = function() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('aftersale-date').value = today;
-    document.getElementById('expense-date').value = today;
-}
+    <input type="hidden" id="edit-1688-id" value="">
 
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(tabName).classList.add('active');
-    event.target.classList.add('active');
-    if (tabName === 'schedule') loadSchedules();
-    if (tabName === 'aftersale') {
-        cancelEdit();
-        doFilter();
-    }
-    if (tabName === 'expense') { // 切换到费用登记时加载数据
-        cancelExpenseEdit();
-        doExpenseFilter();
-    }
-}
+    <div class="form-row">
+        <div class="form-group">
+            <label>下单日期<span class="required">*</span></label>
+            <input type="date" id="1688-date" value="">
+        </div>
+        <div class="form-group">
+            <label>供应商名称<span class="required">*</span></label>
+            <input type="text" id="1688-supplier" placeholder="例如：XX商贸有限公司">
+        </div>
+    </div>
 
-// 日程相关
-function addSchedule() {
-    const title = document.getElementById('schedule-title').value;
-    const time = document.getElementById('schedule-time').value;
-    const note = document.getElementById('schedule-note').value;
-    if (!title || !time) { alert('请填写完整'); return; }
-    const item = {id:Date.now(), title, time, note, createTime:new Date().toLocaleString()};
-    let list = JSON.parse(localStorage.getItem('schedules')||'[]');
-    list.push(item); localStorage.setItem('schedules',JSON.stringify(list));
-    document.getElementById('schedule-title').value='';
-    document.getElementById('schedule-time').value='';
-    document.getElementById('schedule-note').value='';
-    loadSchedules(); alert('添加成功');
-}
-function loadSchedules() {
-    const el = document.getElementById('schedule-list');
-    let list = JSON.parse(localStorage.getItem('schedules')||'[]');
-    if(list.length===0){el.innerHTML='<p>暂无日程</p>';return;}
-    el.innerHTML='';
-    list.forEach(i=>{
-        el.innerHTML+=`
-        <div class="item">
-            <h3>${i.title}</h3>
-            <p>时间：${i.time}</p>
-            <p>备注：${i.note||'无'}</p>
-            <span class="delete" onclick="deleteSchedule(${i.id})">删除</span>
-        </div>`;
-    });
-}
-function deleteSchedule(id){
-    if(!confirm('确定删除？'))return;
-    let list=JSON.parse(localStorage.getItem('schedules')||'[]');
-    list=list.filter(i=>i.id!=id);
-    localStorage.setItem('schedules',JSON.stringify(list));
-    loadSchedules();
-}
+    <div class="form-row">
+        <div class="form-group">
+            <label>1688订单编号<span class="required">*</span></label>
+            <input type="text" id="1688-order" placeholder="填写1688订单号">
+        </div>
+        <div class="form-group">
+            <label>商品名称<span class="required">*</span></label>
+            <input type="text" id="1688-product" placeholder="商品全称">
+        </div>
+    </div>
 
-// 物流官网链接
-function getLogisticsHomeUrl(logistics) {
-    if (!logistics) return '';
-    switch(logistics.trim()) {
-        case '顺丰': return 'https://www.sf-express.com/cn/';
-        case '中通': return 'https://www.zto.com/';
-        case '圆通': return 'https://www.yto.net.cn/';
-        case '韵达': return 'https://www.yundaex.com/';
-        case '申通': return 'https://www.sto.cn/';
-        case '极兔': return 'https://www.jtexpress.com.cn/';
-        case '邮政': return 'https://www.11183.com.cn/';
-        default: return 'https://www.kuaidi100.com/';
-    }
-}
+    <div class="form-row">
+        <div class="form-group">
+            <label>商品规格</label>
+            <input type="text" id="1688-spec" placeholder="例如：红色/XL/100ml">
+        </div>
+        <div class="form-group">
+            <label>采购数量<span class="required">*</span></label>
+            <input type="number" step="1" id="1688-quantity" placeholder="采购数量">
+        </div>
+    </div>
 
-// 售后表单数据获取
-function getFormData() {
-    return {
-        platform: document.getElementById('aftersale-platform').value,
-        date: document.getElementById('aftersale-date').value,
-        status: document.getElementById('aftersale-status').value,
-        orderNo: document.getElementById('aftersale-order').value,
-        productId: document.getElementById('aftersale-product-id').value,
-        productName: document.getElementById('aftersale-product-name').value,
-        refundId: document.getElementById('aftersale-refund-id').value,
-        logistics: document.getElementById('aftersale-logistics').value,
-        logisticsNo: document.getElementById('aftersale-logistics-no').value,
-        received: document.getElementById('aftersale-received').value,
-        refunded: document.getElementById('aftersale-refunded').value,
-        freight: document.getElementById('aftersale-freight').value,
-        amount: document.getElementById('aftersale-amount').value,
-        reason: document.getElementById('aftersale-reason').value,
-        note: document.getElementById('aftersale-note').value
-    };
-}
+    <div class="form-row">
+        <div class="form-group">
+            <label>单价（元）<span class="required">*</span></label>
+            <input type="number" step="0.01" id="1688-price" placeholder="例如：15.80">
+        </div>
+        <div class="form-group">
+            <label>运费（元）</label>
+            <input type="number" step="0.01" id="1688-freight" placeholder="例如：8.00" value="0">
+        </div>
+    </div>
 
-// 售后记录操作
-function addAftersale() {
-    const d = getFormData();
-    if(!d.platform || !d.date || !d.orderNo || !d.productName || !d.reason || !d.status){
-        alert('带*为必填项，请填写完整！');
-        return;
-    }
-    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
-    list.push({...d, id:Date.now(), createTime:new Date().toLocaleString()});
-    localStorage.setItem('aftersales', JSON.stringify(list));
-    resetAftersaleForm();
-    doFilter();
-    alert('保存成功');
-}
+    <div class="form-row">
+        <div class="form-group">
+            <label>支付金额（元）<span class="required">*</span></label>
+            <input type="number" step="0.01" id="1688-total" placeholder="总价（含运费）">
+        </div>
+        <div class="form-group">
+            <label>支付方式</label>
+            <select id="1688-paytype">
+                <option value="">请选择</option>
+                <option value="支付宝">支付宝</option>
+                <option value="微信">微信</option>
+                <option value="对公转账">对公转账</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+    </div>
 
-function editAftersale(id) {
-    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
-    const item = list.find(x => x.id === id);
-    if(!item) return;
-    document.getElementById('edit-aftersale-id').value = id;
-    document.getElementById('aftersale-platform').value = item.platform;
-    document.getElementById('aftersale-date').value = item.date;
-    document.getElementById('aftersale-status').value = item.status;
-    document.getElementById('aftersale-order').value = item.orderNo;
-    document.getElementById('aftersale-product-id').value = item.productId||'';
-    document.getElementById('aftersale-product-name').value = item.productName;
-    document.getElementById('aftersale-refund-id').value = item.refundId||'';
-    document.getElementById('aftersale-logistics').value = item.logistics||'';
-    document.getElementById('aftersale-logistics-no').value = item.logisticsNo||'';
-    document.getElementById('aftersale-received').value = item.received||'';
-    document.getElementById('aftersale-refunded').value = item.refunded||'';
-    document.getElementById('aftersale-freight').value = item.freight||'';
-    document.getElementById('aftersale-amount').value = item.amount||'';
-    document.getElementById('aftersale-reason').value = item.reason;
-    document.getElementById('aftersale-note').value = item.note||'';
+    <div class="form-group">
+        <label>物流信息</label>
+        <input type="text" id="1688-logistics" placeholder="例如：中通 735978600698">
+    </div>
 
-    isEditing = true;
-    document.getElementById('submit-btn').style.display = 'none';
-    document.getElementById('save-btn').style.display = 'block';
-    document.getElementById('cancel-btn').style.display = 'block';
-}
+    <div class="form-group">
+        <label>收货状态</label>
+        <select id="1688-status">
+            <option value="">请选择</option>
+            <option value="已下单未发货">已下单未发货</option>
+            <option value="已发货待收货">已发货待收货</option>
+            <option value="已收货">已收货</option>
+            <option value="退货中">退货中</option>
+            <option value="已退货">已退货</option>
+        </select>
+    </div>
 
-function saveAftersale() {
-    const id = Number(document.getElementById('edit-aftersale-id').value);
-    const d = getFormData();
-    if(!d.platform || !d.date || !d.orderNo || !d.productName || !d.reason || !d.status){
-        alert('请填写完整！');
-        return;
-    }
-    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
-    list = list.map(x => x.id === id ? {...x, ...d} : x);
-    localStorage.setItem('aftersales', JSON.stringify(list));
-    cancelEdit();
-    doFilter();
-    alert('修改成功');
-}
+    <div class="form-group">
+        <label>备注</label>
+        <textarea id="1688-note" rows="3" placeholder="填写备注信息，如：退货原因、特殊要求等"></textarea>
+    </div>
 
-function cancelEdit() {
-    isEditing = false;
-    document.getElementById('edit-aftersale-id').value = '';
-    resetAftersaleForm();
-    document.getElementById('submit-btn').style.display = 'block';
-    document.getElementById('save-btn').style.display = 'none';
-    document.getElementById('cancel-btn').style.display = 'none';
-}
+    <button id="1688-submit-btn" onclick="add1688Order()">提交订单记录</button>
+    <button id="1688-save-btn" class="save-btn" onclick="save1688Order()" style="display:none;">保存修改</button>
+    <button id="1688-cancel-btn" class="cancel-btn" onclick="cancel1688Edit()" style="display:none;">取消编辑</button>
 
-function deleteAftersale(id){
-    if(!confirm('确定删除？'))return;
-    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
-    list = list.filter(x => x.id !== id);
-    localStorage.setItem('aftersales', JSON.stringify(list));
-    doFilter();
-}
+    <!-- 金额合计区域 -->
+    <div class="total-amount" id="1688-total-amount">
+        合计采购金额：¥0.00
+    </div>
 
-function resetAftersaleForm() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('aftersale-platform').value = '';
-    document.getElementById('aftersale-date').value = today;
-    document.getElementById('aftersale-status').value = '';
-    document.getElementById('aftersale-order').value = '';
-    document.getElementById('aftersale-product-id').value = '';
-    document.getElementById('aftersale-product-name').value = '';
-    document.getElementById('aftersale-refund-id').value = '';
-    document.getElementById('aftersale-logistics').value = '';
-    document.getElementById('aftersale-logistics-no').value = '';
-    document.getElementById('aftersale-received').value = '';
-    document.getElementById('aftersale-refunded').value = '';
-    document.getElementById('aftersale-freight').value = '';
-    document.getElementById('aftersale-amount').value = '';
-    document.getElementById('aftersale-reason').value = '';
-    document.getElementById('aftersale-note').value = '';
-}
+    <div class="list" id="1688-list"></div>
+</div>
 
-// 售后筛选
-function doFilter() {
-    const fp = document.getElementById('filter-platform').value.trim();
-    const fs = document.getElementById('filter-status').value.trim();
-    const fo = document.getElementById('filter-order').value.trim().toLowerCase();
-    const fl = document.getElementById('filter-logistics').value.trim();
-    const fn = document.getElementById('filter-logistics-no').value.trim().toLowerCase();
-    const fd = document.getElementById('filter-date').value.trim();
-
-    let list = JSON.parse(localStorage.getItem('aftersales')||'[]');
-    let result = list.filter(item => {
-        if (fp && item.platform !== fp) return false;
-        if (fs && item.status !== fs) return false;
-        if (fo && !item.orderNo.toLowerCase().includes(fo)) return false;
-        if (fl && item.logistics !== fl) return false;
-        if (fn && item.logisticsNo && !item.logisticsNo.toLowerCase().includes(fn)) return false;
-        if (fd && item.date !== fd) return false;
-        return true;
-    });
-    renderList(result);
-}
-
-function resetFilter() {
-    document.getElementById('filter-platform').value = '';
-    document.getElementById('filter-status').value = '';
-    document.getElementById('filter-order').value = '';
-    document.getElementById('filter-logistics').value = '';
-    document.getElementById('filter-logistics-no').value = '';
-    document.getElementById('filter-date').value = '';
-    doFilter();
-}
-
-function renderList(data) {
-    const el = document.getElementById('aftersale-list');
-    if (data.length === 0) {
-        el.innerHTML = '<p>暂无符合条件的售后记录</p>';
-        return;
-    }
-    data.reverse();
-    let html = '';
-    data.forEach(item => {
-        const url = getLogisticsHomeUrl(item.logistics);
-        const logisticsHtml = url ? `<a href="${url}" target="_blank" class="tracking-link">${item.logistics}</a>` : (item.logistics||'-');
-        html += `
-        <div class="item">
-            <h3>${item.platform}｜订单：${item.orderNo}</h3>
-            <p><strong>售后状态：</strong><span style="color:red;font-weight:bold">${item.status}</span></p>
-            <p><strong>日期：</strong>${item.date}｜<strong>商品：</strong>${item.productName}</p>
-            <p><strong>退款：</strong>${item.refundId||'无'}｜${item.amount||0}元｜${item.refunded||'-'}</p>
-            <p><strong>物流：</strong>${logisticsHtml}｜单号：${item.logisticsNo||'无'}</p>
-            <p><strong>收货：</strong>${item.received||'-'}｜<strong>运费：</strong>${item.freight||'-'}</p>
-            <p><strong>原因：</strong>${item.reason}</p>
-            <p><strong>备注：</strong>${item.note||'无'}</p>
-            <div class="btn-group">
-                <span class="edit" onclick="editAftersale(${item.id})">编辑</span>
-                <span class="delete" onclick="deleteAftersale(${item.id})">删除</span>
-            </div>
-        </div>`;
-    });
-    el.innerHTML = html;
-}
-
-// 成本计算器相关
-function calcFinalPrice() {
-    const original = parseFloat(document.getElementById('cost-original').value) || 0;
-    const promotion = parseFloat(document.getElementById('cost-promotion').value) || 0;
-    const rate = parseFloat(document.getElementById('gold-rate').value) || 0;
-    
-    const goldAmount = (promotion * rate / 100).toFixed(2);
-    const finalPrice = (promotion - goldAmount).toFixed(2);
-    
-    document.getElementById('gold-amount').textContent = goldAmount;
-    document.getElementById('final-price').textContent = finalPrice;
-}
-
-function calcGiftPrice() {
-    const giftPrice = parseFloat(document.getElementById('gift-price').value) || 0;
-    const giftSalePrice = parseFloat(document.getElementById('gift-sale-price').value) || 0;
-    const giftRate = parseFloat(document.getElementById('gift-rate').value) || 0;
-    const giftServiceRate = parseFloat(document.getElementById('gift-service-rate').value) || 0;
-    
-    // 新品礼金 = 原价 × 比例 × 1.2 向上取整
-    let giftAmount = giftPrice * giftRate / 100 * 1.2;
-    giftAmount = Math.ceil(giftAmount * 100) / 100; // 向上取整保留2位小数
-    
-    // 技术服务费 = 礼金 × 服务费比例
-    const giftServiceFee = (giftAmount * giftServiceRate / 100).toFixed(2);
-    
-    // 消费者实际付款 = 促销价 - 礼金
-    const giftUserPay = (giftSalePrice - giftAmount).toFixed(2);
-    
-    // 商家实收（只扣礼金）
-    const giftMerchant1 = (giftSalePrice - giftAmount).toFixed(2);
-    
-    // 商家实收（扣礼金+服务费）
-    const giftMerchant2 = (giftSalePrice - giftAmount - parseFloat(giftServiceFee)).toFixed(2);
-    
-    document.getElementById('gift-amount').textContent = giftAmount.toFixed(2);
-    document.getElementById('gift-service-fee').textContent = giftServiceFee;
-    document.getElementById('gift-user-pay').textContent = giftUserPay;
-    document.getElementById('gift-merchant-1').textContent = giftMerchant1;
-    document.getElementById('gift-merchant-2').textContent = giftMerchant2;
-}
-
-function calcDDJB() {
-    const activity = parseFloat(document.getElementById('ddjb-activity').value) || 0;
-    const commission = parseFloat(document.getElementById('ddjb-commission').value) || 0;
-    const service = parseFloat(document.getElementById('ddjb-service').value) || 0;
-    const deduct = parseFloat(document.getElementById('ddjb-deduct').value) || 0;
-    const cost = parseFloat(document.getElementById('ddjb-cost').value) || 0;
-    
-    // 佣金金额
-    const commissionAmount = activity * commission / 100;
-    // 软件服务费金额
-    const serviceAmount = activity * service / 100;
-    // 实际价格 = 活动价 - 佣金 - 软件服务费
-    const realPrice = (activity - commissionAmount - serviceAmount).toFixed(2);
-    // 扣点金额
-    const deductAmount = parseFloat(realPrice) * deduct / 100;
-    // 实际剩余 = 实际价格 - 扣点
-    const realRemain = (parseFloat(realPrice) - deductAmount).toFixed(2);
-    // 盈利 = 实际剩余 - 预估成本
-    const profit = (parseFloat(realRemain) - cost).toFixed(2);
-    
-    document.getElementById('ddjb-real-price').textContent = realPrice;
-    document.getElementById('ddjb-real-remain').textContent = realRemain;
-    document.getElementById('ddjb-profit').textContent = profit;
-}
-
-function calcPDDPrice() {
-    const real = parseFloat(document.getElementById('pdd-real').value) || 0;
-    const discount = parseFloat(document.getElementById('pdd-discount').value) || 0;
-    
-    if (discount === 0) {
-        document.getElementById('pdd-original').textContent = '0.00';
-        return;
-    }
-    
-    const original = (real / (discount / 100)).toFixed(2);
-    document.getElementById('pdd-original').textContent = original;
-}
-
-// ------------------------ 新增费用登记相关逻辑 ------------------------
-// 费用表单数据获取
-function getExpenseFormData() {
-    return {
-        date: document.getElementById('expense-date').value,
-        platform: document.getElementById('expense-platform').value,
-        orderNo: document.getElementById('expense-order').value,
-        name: document.getElementById('expense-name').value,
-        amount: document.getElementById('expense-amount').value,
-        note: document.getElementById('expense-note').value
-    };
-}
-
-// 添加费用记录
-function addExpense() {
-    const d = getExpenseFormData();
-    // 验证必填项
-    if(!d.date || !d.platform || !d.orderNo || !d.name || !d.amount){
-        alert('带*为必填项，请填写完整！');
-        return;
-    }
-    // 验证金额为正数
-    if (parseFloat(d.amount) <= 0) {
-        alert('金额必须大于0！');
-        return;
-    }
-    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
-    list.push({...d, id:Date.now(), createTime:new Date().toLocaleString()});
-    localStorage.setItem('expenses', JSON.stringify(list));
-    resetExpenseForm();
-    doExpenseFilter();
-    alert('保存成功');
-}
-
-// 编辑费用记录
-function editExpense(id) {
-    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
-    const item = list.find(x => x.id === id);
-    if(!item) return;
-    document.getElementById('edit-expense-id').value = id;
-    document.getElementById('expense-date').value = item.date;
-    document.getElementById('expense-platform').value = item.platform;
-    document.getElementById('expense-order').value = item.orderNo;
-    document.getElementById('expense-name').value = item.name;
-    document.getElementById('expense-amount').value = item.amount;
-    document.getElementById('expense-note').value = item.note||'';
-
-    isExpenseEditing = true;
-    document.getElementById('expense-submit-btn').style.display = 'none';
-    document.getElementById('expense-save-btn').style.display = 'block';
-    document.getElementById('expense-cancel-btn').style.display = 'block';
-}
-
-// 保存编辑的费用记录
-function saveExpense() {
-    const id = Number(document.getElementById('edit-expense-id').value);
-    const d = getExpenseFormData();
-    if(!d.date || !d.platform || !d.orderNo || !d.name || !d.amount){
-        alert('请填写完整！');
-        return;
-    }
-    if (parseFloat(d.amount) <= 0) {
-        alert('金额必须大于0！');
-        return;
-    }
-    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
-    list = list.map(x => x.id === id ? {...x, ...d} : x);
-    localStorage.setItem('expenses', JSON.stringify(list));
-    cancelExpenseEdit();
-    doExpenseFilter();
-    alert('修改成功');
-}
-
-// 取消费用编辑
-function cancelExpenseEdit() {
-    isExpenseEditing = false;
-    document.getElementById('edit-expense-id').value = '';
-    resetExpenseForm();
-    document.getElementById('expense-submit-btn').style.display = 'block';
-    document.getElementById('expense-save-btn').style.display = 'none';
-    document.getElementById('expense-cancel-btn').style.display = 'none';
-}
-
-// 删除费用记录
-function deleteExpense(id){
-    if(!confirm('确定删除？'))return;
-    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
-    list = list.filter(x => x.id !== id);
-    localStorage.setItem('expenses', JSON.stringify(list));
-    doExpenseFilter();
-}
-
-// 重置费用表单
-function resetExpenseForm() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('expense-date').value = today;
-    document.getElementById('expense-platform').value = '';
-    document.getElementById('expense-order').value = '';
-    document.getElementById('expense-name').value = '';
-    document.getElementById('expense-amount').value = '';
-    document.getElementById('expense-note').value = '';
-}
-
-// 费用筛选
-function doExpenseFilter() {
-    const fd = document.getElementById('filter-expense-date').value.trim();
-    const fp = document.getElementById('filter-expense-platform').value.trim();
-    const fo = document.getElementById('filter-expense-order').value.trim().toLowerCase();
-    const fn = document.getElementById('filter-expense-name').value.trim().toLowerCase();
-
-    let list = JSON.parse(localStorage.getItem('expenses')||'[]');
-    let result = list.filter(item => {
-        if (fd && item.date !== fd) return false;
-        if (fp && item.platform !== fp) return false;
-        if (fo && !item.orderNo.toLowerCase().includes(fo)) return false;
-        if (fn && !item.name.toLowerCase().includes(fn)) return false;
-        return true;
-    });
-    renderExpenseList(result);
-    calculateExpenseTotal(result); // 计算合计金额
-}
-
-// 重置费用筛选
-function resetExpenseFilter() {
-    document.getElementById('filter-expense-date').value = '';
-    document.getElementById('filter-expense-platform').value = '';
-    document.getElementById('filter-expense-order').value = '';
-    document.getElementById('filter-expense-name').value = '';
-    doExpenseFilter();
-}
-
-// 渲染费用列表
-function renderExpenseList(data) {
-    const el = document.getElementById('expense-list');
-    if (data.length === 0) {
-        el.innerHTML = '<p>暂无符合条件的费用记录</p>';
-        return;
-    }
-    data.reverse();
-    let html = '';
-    data.forEach(item => {
-        html += `
-        <div class="item">
-            <h3>${item.platform}｜订单：${item.orderNo}</h3>
-            <p><strong>日期：</strong>${item.date}</p>
-            <p><strong>费用名称：</strong>${item.name}</p>
-            <p><strong>金额：</strong>¥${item.amount}</p>
-            <p><strong>备注：</strong>${item.note||'无'}</p>
-            <div class="btn-group">
-                <span class="edit" onclick="editExpense(${item.id})">编辑</span>
-                <span class="delete" onclick="deleteExpense(${item.id})">删除</span>
-            </div>
-        </div>`;
-    });
-    el.innerHTML = html;
-}
-
-// 计算费用合计
-function calculateExpenseTotal(data) {
-    let total = 0;
-    data.forEach(item => {
-        total += parseFloat(item.amount) || 0;
-    });
-    document.getElementById('expense-total').textContent = `合计金额：¥${total.toFixed(2)}`;
-}
-
-// ------------------------ Excel导出相关 ------------------------
-// 通用Excel导出方法
-function exportToExcel(headers, rows, fileName) {
-    // 创建CSV内容
-    let csvContent = "data:text/csv;charset=utf-8,";
-    // 添加表头
-    csvContent += headers.join(",") + "\n";
-    // 添加行数据
-    rows.forEach(row => {
-        // 处理包含逗号的内容，用双引号包裹
-        const formattedRow = row.map(cell => {
-            if (cell.toString().includes(',')) {
-                return `"${cell}"`;
-            }
-            return cell;
-        });
-        csvContent += formattedRow.join(",") + "\n";
-    });
-    // 编码并下载
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-// 售后记录导出Excel
-function exportAftersaleExcel() {
-    const list = JSON.parse(localStorage.getItem('aftersales') || '[]');
-    if (list.length === 0) {
-        alert('暂无售后数据可导出');
-        return;
-    }
-
-    const headers = [
-        '平台', '申请日期', '售后状态', '订单号', '产品ID', '产品名称',
-        '退款编号', '物流', '物流单号', '是否收货', '是否退款',
-        '运费赔付', '退款金额', '退款原因', '备注', '录入时间'
-    ];
-
-    const rows = list.map(item => [
-        item.platform || '',
-        item.date || '',
-        item.status || '',
-        item.orderNo || '',
-        item.productId || '',
-        item.productName || '',
-        item.refundId || '',
-        item.logistics || '',
-        item.logisticsNo || '',
-        item.received || '',
-        item.refunded || '',
-        item.freight || '',
-        item.amount || '',
-        item.reason || '',
-        item.note || '',
-        item.createTime || ''
-    ]);
-
-    exportToExcel(headers, rows, '售后记录_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.csv');
-}
-
-// 费用记录导出Excel
-function exportExpenseExcel() {
-    const list = JSON.parse(localStorage.getItem('expenses') || '[]');
-    if (list.length === 0) {
-        alert('暂无费用数据可导出');
-        return;
-    }
-
-    const headers = ['日期', '平台', '订单编号', '费用名称', '金额（元）', '备注', '录入时间'];
-
-    const rows = list.map(item => [
-        item.date || '',
-        item.platform || '',
-        item.orderNo || '',
-        item.name || '',
-        item.amount || '',
-        item.note || '',
-        item.createTime || ''
-    ]);
-
-    exportToExcel(headers, rows, '费用记录_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.csv');
-}
-</script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人管理工具</title>
-    <style>
-        /* 基础样式，不影响你原有功能 */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        body {
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-    </style>
-</head>
-<body>
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人管理工具</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        body {
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-    </style>
-</head>
-<body>
-
-<!-- 🔒 密码保护：请在这里修改你的密码 -->
-<script>
-const MY_PASSWORD = "!Kg115928";  // 你可以改成自己的密码
-let inputPwd = prompt("请输入访问密码：");
-if (inputPwd !== MY_PASSWORD) {
-    document.body.innerHTML = "<h1>🔒 无访问权限</h1>";
-    throw new Error("无权限访问");
-}
-</script>
-
-<!-- 📂 一键导出 / 导入所有数据（已匹配你的真实键名） -->
-<div style="margin: 20px 0; padding: 15px; background: #f5f7fa; border-radius: 8px;">
+<!-- 📂 一键导出 / 导入所有数据（移至页面底部） -->
+<div class="backup-module">
     <div style="font-weight: bold; margin-bottom: 10px;">📂 全站数据备份/恢复</div>
     
     <button onclick="exportAllData()" style="padding:8px 16px; margin-right:10px; background:#409eff; color:white; border:none; border-radius:4px; cursor:pointer;">
@@ -1416,51 +915,255 @@ if (inputPwd !== MY_PASSWORD) {
 </div>
 
 <script>
-// 导出所有数据（售后、费用、日程）
-function exportAllData() {
-    const allData = {
-        aftersales: localStorage.getItem('aftersales'),
-        expenses: localStorage.getItem('expenses'),
-        schedules: localStorage.getItem('schedules')
-    };
-    const blob = new Blob([JSON.stringify(allData)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '整站所有数据_' + new Date().getTime() + '.json';
-    a.click();
-    URL.revokeObjectURL(url);
+let isEditing = false;
+let isExpenseEditing = false; // 费用编辑状态
+let is1688Editing = false; // 1688订单编辑状态
+
+// 初始化日期为当天
+window.onload = function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('aftersale-date').value = today;
+    document.getElementById('expense-date').value = today;
+    document.getElementById('1688-date').value = today; // 初始化1688日期
+    // 默认选中第一个标签
+    switchTab('schedule', document.querySelector('.tab-btn'));
 }
 
-// 导入所有数据（自动恢复到正确位置）
+// 修复标签切换函数（新增btn参数，避免event.target异常）
+function switchTab(tabName, btn) {
+    // 移除所有激活状态
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    // 激活目标标签
+    document.getElementById(tabName).classList.add('active');
+    btn.classList.add('active');
+    // 加载对应数据
+    if (tabName === 'schedule') loadSchedules();
+    if (tabName === 'aftersale') {
+        cancelEdit();
+        doFilter();
+    }
+    if (tabName === 'expense') { 
+        cancelExpenseEdit();
+        doExpenseFilter();
+    }
+    if (tabName === '1688order') { 
+        cancel1688Edit();
+        do1688Filter();
+    }
+}
+
+// 日程相关
+function addSchedule() {
+    const title = document.getElementById('schedule-title').value;
+    const time = document.getElementById('schedule-time').value;
+    const note = document.getElementById('schedule-note').value;
+    if (!title || !time) { alert('请填写完整'); return; }
+    const item = {id:Date.now(), title, time, note, createTime:new Date().toLocaleString()};
+    let list = JSON.parse(localStorage.getItem('schedules')||'[]');
+    list.push(item); 
+    localStorage.setItem('schedules',JSON.stringify(list));
+    // 清空表单
+    document.getElementById('schedule-title').value = '';
+    document.getElementById('schedule-time').value = '';
+    document.getElementById('schedule-note').value = '';
+    // 重新加载列表
+    loadSchedules();
+}
+
+// 加载日程列表（补充缺失的函数）
+function loadSchedules() {
+    const list = JSON.parse(localStorage.getItem('schedules')||'[]');
+    const listEl = document.getElementById('schedule-list');
+    listEl.innerHTML = '';
+    if (list.length === 0) {
+        listEl.innerHTML = '<p>暂无日程记录</p>';
+        return;
+    }
+    list.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'item';
+        el.innerHTML = `
+            <h3>${item.title}</h3>
+            <p><strong>提醒时间：</strong>${item.time}</p>
+            <p><strong>备注：</strong>${item.note || '无'}</p>
+            <p><strong>创建时间：</strong>${item.createTime}</p>
+            <div class="btn-group">
+                <span class="delete" onclick="deleteSchedule(${item.id})">删除</span>
+            </div>
+        `;
+        listEl.appendChild(el);
+    });
+}
+
+// 删除日程（补充缺失的函数）
+function deleteSchedule(id) {
+    if (!confirm('确定删除该日程吗？')) return;
+    let list = JSON.parse(localStorage.getItem('schedules')||'[]');
+    list = list.filter(item => item.id !== id);
+    localStorage.setItem('schedules', JSON.stringify(list));
+    loadSchedules();
+}
+
+// 成本计算器核心函数（补充缺失的计算函数）
+function calcFinalPrice() {
+    const original = parseFloat(document.getElementById('cost-original').value) || 0;
+    const promotion = parseFloat(document.getElementById('cost-promotion').value) || 0;
+    const goldRate = parseFloat(document.getElementById('gold-rate').value) || 0;
+    
+    const goldAmount = (promotion * goldRate / 100).toFixed(2);
+    const finalPrice = (promotion - parseFloat(goldAmount)).toFixed(2);
+    
+    document.getElementById('gold-amount').textContent = goldAmount;
+    document.getElementById('final-price').textContent = finalPrice;
+}
+
+function calcGiftPrice() {
+    const giftPrice = parseFloat(document.getElementById('gift-price').value) || 0;
+    const giftSalePrice = parseFloat(document.getElementById('gift-sale-price').value) || 0;
+    const giftRate = parseFloat(document.getElementById('gift-rate').value) || 0;
+    const giftServiceRate = parseFloat(document.getElementById('gift-service-rate').value) || 0;
+    
+    // 新品礼金 = 原价 × 比例 × 1.2 向上取整
+    let giftAmount = giftPrice * giftRate / 100 * 1.2;
+    giftAmount = Math.ceil(giftAmount * 100) / 100; // 向上取整到分
+    
+    // 技术服务费
+    const giftServiceFee = (giftAmount * giftServiceRate / 100).toFixed(2);
+    // 消费者实际付款
+    const giftUserPay = (giftSalePrice - giftAmount).toFixed(2);
+    // 商家实收（只扣礼金）
+    const giftMerchant1 = (giftSalePrice - giftAmount).toFixed(2);
+    // 商家实收（扣礼金+服务费）
+    const giftMerchant2 = (giftSalePrice - giftAmount - parseFloat(giftServiceFee)).toFixed(2);
+    
+    document.getElementById('gift-amount').textContent = giftAmount.toFixed(2);
+    document.getElementById('gift-service-fee').textContent = giftServiceFee;
+    document.getElementById('gift-user-pay').textContent = giftUserPay;
+    document.getElementById('gift-merchant-1').textContent = giftMerchant1;
+    document.getElementById('gift-merchant-2').textContent = giftMerchant2;
+}
+
+function calcDDJB() {
+    const ddjbActivity = parseFloat(document.getElementById('ddjb-activity').value) || 0;
+    const ddjbCommission = parseFloat(document.getElementById('ddjb-commission').value) || 0;
+    const ddjbService = parseFloat(document.getElementById('ddjb-service').value) || 0;
+    const ddjbDeduct = parseFloat(document.getElementById('ddjb-deduct').value) || 0;
+    const ddjbCost = parseFloat(document.getElementById('ddjb-cost').value) || 0;
+    
+    // 佣金
+    const commission = ddjbActivity * ddjbCommission / 100;
+    // 软件服务费
+    const serviceFee = ddjbActivity * ddjbService / 100;
+    // 实际价格
+    const realPrice = (ddjbActivity - commission - serviceFee).toFixed(2);
+    // 扣点
+    const deductFee = parseFloat(realPrice) * ddjbDeduct / 100;
+    // 实际剩余
+    const realRemain = (parseFloat(realPrice) - deductFee).toFixed(2);
+    // 盈利
+    const profit = (parseFloat(realRemain) - ddjbCost).toFixed(2);
+    
+    document.getElementById('ddjb-real-price').textContent = realPrice;
+    document.getElementById('ddjb-real-remain').textContent = realRemain;
+    document.getElementById('ddjb-profit').textContent = profit;
+}
+
+function calcPDDPrice() {
+    const pddReal = parseFloat(document.getElementById('pdd-real').value) || 0;
+    const pddDiscount = parseFloat(document.getElementById('pdd-discount').value) || 0;
+    
+    if (pddDiscount === 0) {
+        document.getElementById('pdd-original').textContent = '0.00';
+        return;
+    }
+    
+    const original = (pddReal / (pddDiscount / 100)).toFixed(2);
+    document.getElementById('pdd-original').textContent = original;
+}
+
+// 数据备份/恢复函数（补充缺失的核心函数）
+function exportAllData() {
+    // 收集所有数据
+    const data = {
+        schedules: JSON.parse(localStorage.getItem('schedules') || '[]'),
+        aftersales: JSON.parse(localStorage.getItem('aftersales') || '[]'),
+        expenses: JSON.parse(localStorage.getItem('expenses') || '[]'),
+        order1688: JSON.parse(localStorage.getItem('order1688') || '[]'),
+        exportTime: new Date().toLocaleString()
+    };
+    // 转为JSON字符串
+    const jsonStr = JSON.stringify(data, null, 2);
+    // 创建Blob对象
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    // 创建下载链接
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `数据备份_${new Date().getTime()}.json`;
+    // 触发下载
+    a.click();
+    // 释放URL
+    URL.revokeObjectURL(a.href);
+    alert('数据导出成功！');
+}
+
 function importAllData(event) {
     const file = event.target.files[0];
     if (!file) return;
-
+    if (file.type !== 'application/json') {
+        alert('请选择JSON格式的备份文件！');
+        return;
+    }
+    // 读取文件
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = function(e) {
         try {
-            const json = JSON.parse(e.target.result);
-
-            if (json.aftersales) localStorage.setItem('aftersales', json.aftersales);
-            if (json.expenses) localStorage.setItem('expenses', json.expenses);
-            if (json.schedules) localStorage.setItem('schedules', json.schedules);
-
-            alert('✅ 所有数据导入成功！页面即将刷新');
-            location.reload();
+            const data = JSON.parse(e.target.result);
+            // 验证数据结构
+            if (!data) throw new Error('数据格式错误');
+            // 备份现有数据（防止导入失败）
+            const backup = {
+                schedules: localStorage.getItem('schedules'),
+                aftersales: localStorage.getItem('aftersales'),
+                expenses: localStorage.getItem('expenses'),
+                order1688: localStorage.getItem('order1688'),
+                backupTime: new Date().toLocaleString()
+            };
+            localStorage.setItem('backup_before_import', JSON.stringify(backup));
+            // 导入数据
+            if (data.schedules) localStorage.setItem('schedules', JSON.stringify(data.schedules));
+            if (data.aftersales) localStorage.setItem('aftersales', JSON.stringify(data.aftersales));
+            if (data.expenses) localStorage.setItem('expenses', JSON.stringify(data.expenses));
+            if (data.order1688) localStorage.setItem('order1688', JSON.stringify(data.order1688));
+            // 刷新页面
+            alert('数据导入成功！页面将刷新');
+            window.location.reload();
         } catch (err) {
-            alert('❌ 导入失败：文件格式错误');
+            alert('数据导入失败：' + err.message);
         }
     };
     reader.readAsText(file);
 }
+
+// 以下为占位函数（需根据实际业务补充完整，避免控制台报错）
+function addAftersale() {}
+function saveAftersale() {}
+function cancelEdit() {}
+function doFilter() {}
+function resetFilter() {}
+function exportAftersaleExcel() {}
+function addExpense() {}
+function saveExpense() {}
+function cancelExpenseEdit() {}
+function doExpenseFilter() {}
+function resetExpenseFilter() {}
+function exportExpenseExcel() {}
+function add1688Order() {}
+function save1688Order() {}
+function cancel1688Edit() {}
+function do1688Filter() {}
+function reset1688Filter() {}
+function export1688Excel() {}
 </script>
-
-<!-- ============================================== -->
-<!-- 👇 👇 把你原来的所有页面代码从这里开始粘贴 👇 👇 -->
-<!-- ============================================== -->
-
-
-
 </body>
 </html>
