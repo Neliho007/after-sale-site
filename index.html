@@ -941,19 +941,19 @@ function switchTab(tabName, btn) {
     if (tabName === 'schedule') loadSchedules();
     if (tabName === 'aftersale') {
         cancelEdit();
-        doFilter();
+        loadAftersales(); // 加载售后数据
     }
     if (tabName === 'expense') { 
         cancelExpenseEdit();
-        doExpenseFilter();
+        loadExpenses(); // 加载费用数据
     }
     if (tabName === '1688order') { 
         cancel1688Edit();
-        do1688Filter();
+        load1688Orders(); // 加载1688订单数据
     }
 }
 
-// 日程相关
+// ======================== 日程相关 ========================
 function addSchedule() {
     const title = document.getElementById('schedule-title').value;
     const time = document.getElementById('schedule-time').value;
@@ -971,7 +971,6 @@ function addSchedule() {
     loadSchedules();
 }
 
-// 加载日程列表（补充缺失的函数）
 function loadSchedules() {
     const list = JSON.parse(localStorage.getItem('schedules')||'[]');
     const listEl = document.getElementById('schedule-list');
@@ -996,7 +995,6 @@ function loadSchedules() {
     });
 }
 
-// 删除日程（补充缺失的函数）
 function deleteSchedule(id) {
     if (!confirm('确定删除该日程吗？')) return;
     let list = JSON.parse(localStorage.getItem('schedules')||'[]');
@@ -1005,7 +1003,7 @@ function deleteSchedule(id) {
     loadSchedules();
 }
 
-// 成本计算器核心函数（补充缺失的计算函数）
+// ======================== 成本计算器核心函数 ========================
 function calcFinalPrice() {
     const original = parseFloat(document.getElementById('cost-original').value) || 0;
     const promotion = parseFloat(document.getElementById('cost-promotion').value) || 0;
@@ -1082,7 +1080,812 @@ function calcPDDPrice() {
     document.getElementById('pdd-original').textContent = original;
 }
 
-// 数据备份/恢复函数（补充缺失的核心函数）
+// ======================== 售后登记核心函数 ========================
+function addAftersale() {
+    // 获取表单数据
+    const platform = document.getElementById('aftersale-platform').value;
+    const date = document.getElementById('aftersale-date').value;
+    const status = document.getElementById('aftersale-status').value;
+    const order = document.getElementById('aftersale-order').value;
+    const productName = document.getElementById('aftersale-product-name').value;
+    const reason = document.getElementById('aftersale-reason').value;
+    
+    // 验证必填项
+    if (!platform || !date || !status || !order || !productName || !reason) {
+        alert('请填写所有必填项（带*的字段）');
+        return;
+    }
+    
+    // 组装数据
+    const aftersale = {
+        id: Date.now(),
+        platform,
+        date,
+        status,
+        order,
+        productId: document.getElementById('aftersale-product-id').value,
+        productName,
+        refundId: document.getElementById('aftersale-refund-id').value,
+        logistics: document.getElementById('aftersale-logistics').value,
+        logisticsNo: document.getElementById('aftersale-logistics-no').value,
+        received: document.getElementById('aftersale-received').value,
+        refunded: document.getElementById('aftersale-refunded').value,
+        freight: document.getElementById('aftersale-freight').value,
+        amount: document.getElementById('aftersale-amount').value || 0,
+        reason,
+        note: document.getElementById('aftersale-note').value,
+        createTime: new Date().toLocaleString()
+    };
+    
+    // 保存到本地存储
+    let aftersales = JSON.parse(localStorage.getItem('aftersales') || '[]');
+    aftersales.push(aftersale);
+    localStorage.setItem('aftersales', JSON.stringify(aftersales));
+    
+    // 清空表单
+    resetAftersaleForm();
+    
+    // 重新加载列表
+    loadAftersales();
+    
+    alert('售后记录提交成功！');
+}
+
+function loadAftersales(filter = {}) {
+    let aftersales = JSON.parse(localStorage.getItem('aftersales') || '[]');
+    
+    // 筛选逻辑
+    if (filter.platform) {
+        aftersales = aftersales.filter(item => item.platform === filter.platform);
+    }
+    if (filter.status) {
+        aftersales = aftersales.filter(item => item.status === filter.status);
+    }
+    if (filter.order) {
+        aftersales = aftersales.filter(item => item.order.includes(filter.order));
+    }
+    if (filter.logistics) {
+        aftersales = aftersales.filter(item => item.logistics === filter.logistics);
+    }
+    if (filter.logisticsNo) {
+        aftersales = aftersales.filter(item => item.logisticsNo.includes(filter.logisticsNo));
+    }
+    if (filter.date) {
+        aftersales = aftersales.filter(item => item.date === filter.date);
+    }
+    
+    const listEl = document.getElementById('aftersale-list');
+    listEl.innerHTML = '';
+    
+    if (aftersales.length === 0) {
+        listEl.innerHTML = '<p>暂无售后记录</p>';
+        return;
+    }
+    
+    // 渲染列表
+    aftersales.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'item';
+        el.innerHTML = `
+            <h3>订单号：${item.order}</h3>
+            <p><strong>平台：</strong>${item.platform}</p>
+            <p><strong>申请日期：</strong>${item.date}</p>
+            <p><strong>售后状态：</strong>${item.status}</p>
+            <p><strong>商品名称：</strong>${item.productName}</p>
+            <p><strong>物流/单号：</strong>${item.logistics || '无'} / ${item.logisticsNo || '无'}</p>
+            <p><strong>是否收到退货：</strong>${item.received || '未选择'}</p>
+            <p><strong>是否退款：</strong>${item.refunded || '未选择'}</p>
+            <p><strong>退款金额：</strong>¥${item.amount}</p>
+            <p><strong>退款原因：</strong>${item.reason}</p>
+            <p><strong>备注：</strong>${item.note || '无'}</p>
+            <p><strong>创建时间：</strong>${item.createTime}</p>
+            <div class="btn-group">
+                <span class="edit" onclick="editAftersale(${item.id})">编辑</span>
+                <span class="delete" onclick="deleteAftersale(${item.id})">删除</span>
+            </div>
+        `;
+        listEl.appendChild(el);
+    });
+}
+
+function editAftersale(id) {
+    let aftersales = JSON.parse(localStorage.getItem('aftersales') || '[]');
+    const aftersale = aftersales.find(item => item.id === id);
+    
+    if (!aftersale) return;
+    
+    // 填充表单
+    document.getElementById('edit-aftersale-id').value = id;
+    document.getElementById('aftersale-platform').value = aftersale.platform;
+    document.getElementById('aftersale-date').value = aftersale.date;
+    document.getElementById('aftersale-status').value = aftersale.status;
+    document.getElementById('aftersale-order').value = aftersale.order;
+    document.getElementById('aftersale-product-id').value = aftersale.productId;
+    document.getElementById('aftersale-product-name').value = aftersale.productName;
+    document.getElementById('aftersale-refund-id').value = aftersale.refundId;
+    document.getElementById('aftersale-logistics').value = aftersale.logistics;
+    document.getElementById('aftersale-logistics-no').value = aftersale.logisticsNo;
+    document.getElementById('aftersale-received').value = aftersale.received;
+    document.getElementById('aftersale-refunded').value = aftersale.refunded;
+    document.getElementById('aftersale-freight').value = aftersale.freight;
+    document.getElementById('aftersale-amount').value = aftersale.amount;
+    document.getElementById('aftersale-reason').value = aftersale.reason;
+    document.getElementById('aftersale-note').value = aftersale.note;
+    
+    // 切换按钮状态
+    document.getElementById('submit-btn').style.display = 'none';
+    document.getElementById('save-btn').style.display = 'inline-block';
+    document.getElementById('cancel-btn').style.display = 'inline-block';
+    isEditing = true;
+}
+
+function saveAftersale() {
+    const id = parseInt(document.getElementById('edit-aftersale-id').value);
+    let aftersales = JSON.parse(localStorage.getItem('aftersales') || '[]');
+    const index = aftersales.findIndex(item => item.id === id);
+    
+    if (index === -1) return;
+    
+    // 更新数据
+    aftersales[index] = {
+        ...aftersales[index],
+        platform: document.getElementById('aftersale-platform').value,
+        date: document.getElementById('aftersale-date').value,
+        status: document.getElementById('aftersale-status').value,
+        order: document.getElementById('aftersale-order').value,
+        productId: document.getElementById('aftersale-product-id').value,
+        productName: document.getElementById('aftersale-product-name').value,
+        refundId: document.getElementById('aftersale-refund-id').value,
+        logistics: document.getElementById('aftersale-logistics').value,
+        logisticsNo: document.getElementById('aftersale-logistics-no').value,
+        received: document.getElementById('aftersale-received').value,
+        refunded: document.getElementById('aftersale-refunded').value,
+        freight: document.getElementById('aftersale-freight').value,
+        amount: document.getElementById('aftersale-amount').value || 0,
+        reason: document.getElementById('aftersale-reason').value,
+        note: document.getElementById('aftersale-note').value
+    };
+    
+    // 保存数据
+    localStorage.setItem('aftersales', JSON.stringify(aftersales));
+    
+    // 重置表单和按钮
+    cancelEdit();
+    
+    // 重新加载列表
+    loadAftersales();
+    
+    alert('售后记录修改成功！');
+}
+
+function deleteAftersale(id) {
+    if (!confirm('确定删除该售后记录吗？')) return;
+    
+    let aftersales = JSON.parse(localStorage.getItem('aftersales') || '[]');
+    aftersales = aftersales.filter(item => item.id !== id);
+    localStorage.setItem('aftersales', JSON.stringify(aftersales));
+    
+    loadAftersales();
+}
+
+function cancelEdit() {
+    resetAftersaleForm();
+    document.getElementById('submit-btn').style.display = 'inline-block';
+    document.getElementById('save-btn').style.display = 'none';
+    document.getElementById('cancel-btn').style.display = 'none';
+    document.getElementById('edit-aftersale-id').value = '';
+    isEditing = false;
+}
+
+function resetAftersaleForm() {
+    document.getElementById('aftersale-platform').value = '';
+    document.getElementById('aftersale-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('aftersale-status').value = '';
+    document.getElementById('aftersale-order').value = '';
+    document.getElementById('aftersale-product-id').value = '';
+    document.getElementById('aftersale-product-name').value = '';
+    document.getElementById('aftersale-refund-id').value = '';
+    document.getElementById('aftersale-logistics').value = '';
+    document.getElementById('aftersale-logistics-no').value = '';
+    document.getElementById('aftersale-received').value = '';
+    document.getElementById('aftersale-refunded').value = '';
+    document.getElementById('aftersale-freight').value = '';
+    document.getElementById('aftersale-amount').value = '';
+    document.getElementById('aftersale-reason').value = '';
+    document.getElementById('aftersale-note').value = '';
+}
+
+function doFilter() {
+    const filter = {
+        platform: document.getElementById('filter-platform').value,
+        status: document.getElementById('filter-status').value,
+        order: document.getElementById('filter-order').value,
+        logistics: document.getElementById('filter-logistics').value,
+        logisticsNo: document.getElementById('filter-logistics-no').value,
+        date: document.getElementById('filter-date').value
+    };
+    loadAftersales(filter);
+}
+
+function resetFilter() {
+    document.getElementById('filter-platform').value = '';
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-order').value = '';
+    document.getElementById('filter-logistics').value = '';
+    document.getElementById('filter-logistics-no').value = '';
+    document.getElementById('filter-date').value = '';
+    loadAftersales();
+}
+
+function exportAftersaleExcel() {
+    let aftersales = JSON.parse(localStorage.getItem('aftersales') || '[]');
+    if (aftersales.length === 0) {
+        alert('暂无售后数据可导出');
+        return;
+    }
+    
+    // 转换为CSV格式
+    const headers = [
+        '平台', '申请日期', '售后状态', '订单编号', '产品ID', '产品名称',
+        '退款编号', '物流', '物流单号', '是否收到退货', '是否退款',
+        '运费是否赔付', '退款金额', '退款原因', '备注', '创建时间'
+    ];
+    
+    const rows = aftersales.map(item => [
+        item.platform,
+        item.date,
+        item.status,
+        item.order,
+        item.productId || '',
+        item.productName,
+        item.refundId || '',
+        item.logistics || '',
+        item.logisticsNo || '',
+        item.received || '',
+        item.refunded || '',
+        item.freight || '',
+        item.amount,
+        item.reason,
+        item.note || '',
+        item.createTime
+    ]);
+    
+    // 生成CSV内容
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    // 下载文件
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `售后记录_${new Date().getTime()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ======================== 费用登记核心函数 ========================
+function addExpense() {
+    // 获取表单数据
+    const date = document.getElementById('expense-date').value;
+    const platform = document.getElementById('expense-platform').value;
+    const order = document.getElementById('expense-order').value;
+    const name = document.getElementById('expense-name').value;
+    const amount = document.getElementById('expense-amount').value;
+    
+    // 验证必填项
+    if (!date || !platform || !order || !name || !amount) {
+        alert('请填写所有必填项（带*的字段）');
+        return;
+    }
+    
+    // 组装数据
+    const expense = {
+        id: Date.now(),
+        date,
+        platform,
+        order,
+        name,
+        amount,
+        note: document.getElementById('expense-note').value,
+        createTime: new Date().toLocaleString()
+    };
+    
+    // 保存到本地存储
+    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    expenses.push(expense);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    
+    // 清空表单
+    resetExpenseForm();
+    
+    // 重新加载列表和合计
+    loadExpenses();
+    calculateExpenseTotal();
+    
+    alert('费用记录提交成功！');
+}
+
+function loadExpenses(filter = {}) {
+    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    
+    // 筛选逻辑
+    if (filter.date) {
+        expenses = expenses.filter(item => item.date === filter.date);
+    }
+    if (filter.platform) {
+        expenses = expenses.filter(item => item.platform === filter.platform);
+    }
+    if (filter.order) {
+        expenses = expenses.filter(item => item.order.includes(filter.order));
+    }
+    if (filter.name) {
+        expenses = expenses.filter(item => item.name.includes(filter.name));
+    }
+    
+    const listEl = document.getElementById('expense-list');
+    listEl.innerHTML = '';
+    
+    if (expenses.length === 0) {
+        listEl.innerHTML = '<p>暂无费用记录</p>';
+        calculateExpenseTotal();
+        return;
+    }
+    
+    // 渲染列表
+    expenses.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'item';
+        el.innerHTML = `
+            <h3>订单号：${item.order} - ${item.name}</h3>
+            <p><strong>日期：</strong>${item.date}</p>
+            <p><strong>平台：</strong>${item.platform}</p>
+            <p><strong>金额：</strong>¥${item.amount}</p>
+            <p><strong>备注：</strong>${item.note || '无'}</p>
+            <p><strong>创建时间：</strong>${item.createTime}</p>
+            <div class="btn-group">
+                <span class="edit" onclick="editExpense(${item.id})">编辑</span>
+                <span class="delete" onclick="deleteExpense(${item.id})">删除</span>
+            </div>
+        `;
+        listEl.appendChild(el);
+    });
+    
+    // 计算合计
+    calculateExpenseTotal(expenses);
+}
+
+function calculateExpenseTotal(expenses = null) {
+    if (!expenses) {
+        expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    }
+    
+    const total = expenses.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+    document.getElementById('expense-total').textContent = `合计金额：¥${total.toFixed(2)}`;
+}
+
+function editExpense(id) {
+    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    const expense = expenses.find(item => item.id === id);
+    
+    if (!expense) return;
+    
+    // 填充表单
+    document.getElementById('edit-expense-id').value = id;
+    document.getElementById('expense-date').value = expense.date;
+    document.getElementById('expense-platform').value = expense.platform;
+    document.getElementById('expense-order').value = expense.order;
+    document.getElementById('expense-name').value = expense.name;
+    document.getElementById('expense-amount').value = expense.amount;
+    document.getElementById('expense-note').value = expense.note;
+    
+    // 切换按钮状态
+    document.getElementById('expense-submit-btn').style.display = 'none';
+    document.getElementById('expense-save-btn').style.display = 'inline-block';
+    document.getElementById('expense-cancel-btn').style.display = 'inline-block';
+    isExpenseEditing = true;
+}
+
+function saveExpense() {
+    const id = parseInt(document.getElementById('edit-expense-id').value);
+    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    const index = expenses.findIndex(item => item.id === id);
+    
+    if (index === -1) return;
+    
+    // 更新数据
+    expenses[index] = {
+        ...expenses[index],
+        date: document.getElementById('expense-date').value,
+        platform: document.getElementById('expense-platform').value,
+        order: document.getElementById('expense-order').value,
+        name: document.getElementById('expense-name').value,
+        amount: document.getElementById('expense-amount').value,
+        note: document.getElementById('expense-note').value
+    };
+    
+    // 保存数据
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    
+    // 重置表单和按钮
+    cancelExpenseEdit();
+    
+    // 重新加载列表和合计
+    loadExpenses();
+    calculateExpenseTotal();
+    
+    alert('费用记录修改成功！');
+}
+
+function deleteExpense(id) {
+    if (!confirm('确定删除该费用记录吗？')) return;
+    
+    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    expenses = expenses.filter(item => item.id !== id);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    
+    loadExpenses();
+    calculateExpenseTotal();
+}
+
+function cancelExpenseEdit() {
+    resetExpenseForm();
+    document.getElementById('expense-submit-btn').style.display = 'inline-block';
+    document.getElementById('expense-save-btn').style.display = 'none';
+    document.getElementById('expense-cancel-btn').style.display = 'none';
+    document.getElementById('edit-expense-id').value = '';
+    isExpenseEditing = false;
+}
+
+function resetExpenseForm() {
+    document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('expense-platform').value = '';
+    document.getElementById('expense-order').value = '';
+    document.getElementById('expense-name').value = '';
+    document.getElementById('expense-amount').value = '';
+    document.getElementById('expense-note').value = '';
+}
+
+function doExpenseFilter() {
+    const filter = {
+        date: document.getElementById('filter-expense-date').value,
+        platform: document.getElementById('filter-expense-platform').value,
+        order: document.getElementById('filter-expense-order').value,
+        name: document.getElementById('filter-expense-name').value
+    };
+    loadExpenses(filter);
+}
+
+function resetExpenseFilter() {
+    document.getElementById('filter-expense-date').value = '';
+    document.getElementById('filter-expense-platform').value = '';
+    document.getElementById('filter-expense-order').value = '';
+    document.getElementById('filter-expense-name').value = '';
+    loadExpenses();
+}
+
+function exportExpenseExcel() {
+    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    if (expenses.length === 0) {
+        alert('暂无费用数据可导出');
+        return;
+    }
+    
+    // 转换为CSV格式
+    const headers = ['日期', '平台', '订单编号', '费用名称', '金额', '备注', '创建时间'];
+    
+    const rows = expenses.map(item => [
+        item.date,
+        item.platform,
+        item.order,
+        item.name,
+        item.amount,
+        item.note || '',
+        item.createTime
+    ]);
+    
+    // 生成CSV内容
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    // 下载文件
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `费用记录_${new Date().getTime()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ======================== 1688订单核心函数 ========================
+function add1688Order() {
+    // 获取表单数据
+    const date = document.getElementById('1688-date').value;
+    const supplier = document.getElementById('1688-supplier').value;
+    const order = document.getElementById('1688-order').value;
+    const product = document.getElementById('1688-product').value;
+    const quantity = document.getElementById('1688-quantity').value;
+    const price = document.getElementById('1688-price').value;
+    const total = document.getElementById('1688-total').value;
+    
+    // 验证必填项
+    if (!date || !supplier || !order || !product || !quantity || !price || !total) {
+        alert('请填写所有必填项（带*的字段）');
+        return;
+    }
+    
+    // 组装数据
+    const order1688 = {
+        id: Date.now(),
+        date,
+        supplier,
+        order,
+        product,
+        spec: document.getElementById('1688-spec').value,
+        quantity,
+        price,
+        freight: document.getElementById('1688-freight').value || 0,
+        total,
+        paytype: document.getElementById('1688-paytype').value,
+        logistics: document.getElementById('1688-logistics').value,
+        status: document.getElementById('1688-status').value,
+        note: document.getElementById('1688-note').value,
+        createTime: new Date().toLocaleString()
+    };
+    
+    // 保存到本地存储
+    let orders1688 = JSON.parse(localStorage.getItem('order1688') || '[]');
+    orders1688.push(order1688);
+    localStorage.setItem('order1688', JSON.stringify(orders1688));
+    
+    // 清空表单
+    reset1688Form();
+    
+    // 重新加载列表和合计
+    load1688Orders();
+    calculate1688Total();
+    
+    alert('1688订单记录提交成功！');
+}
+
+function load1688Orders(filter = {}) {
+    let orders1688 = JSON.parse(localStorage.getItem('order1688') || '[]');
+    
+    // 筛选逻辑
+    if (filter.date) {
+        orders1688 = orders1688.filter(item => item.date === filter.date);
+    }
+    if (filter.supplier) {
+        orders1688 = orders1688.filter(item => item.supplier.includes(filter.supplier));
+    }
+    if (filter.order) {
+        orders1688 = orders1688.filter(item => item.order.includes(filter.order));
+    }
+    if (filter.product) {
+        orders1688 = orders1688.filter(item => item.product.includes(filter.product));
+    }
+    
+    const listEl = document.getElementById('1688-list');
+    listEl.innerHTML = '';
+    
+    if (orders1688.length === 0) {
+        listEl.innerHTML = '<p>暂无1688订单记录</p>';
+        calculate1688Total();
+        return;
+    }
+    
+    // 渲染列表
+    orders1688.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'item';
+        el.innerHTML = `
+            <h3>订单号：${item.order} - ${item.product}</h3>
+            <p><strong>下单日期：</strong>${item.date}</p>
+            <p><strong>供应商：</strong>${item.supplier}</p>
+            <p><strong>规格：</strong>${item.spec || '无'}</p>
+            <p><strong>采购数量：</strong>${item.quantity}</p>
+            <p><strong>单价：</strong>¥${item.price}</p>
+            <p><strong>运费：</strong>¥${item.freight}</p>
+            <p><strong>支付金额：</strong>¥${item.total}</p>
+            <p><strong>支付方式：</strong>${item.paytype || '未选择'}</p>
+            <p><strong>物流信息：</strong>${item.logistics || '无'}</p>
+            <p><strong>收货状态：</strong>${item.status || '未选择'}</p>
+            <p><strong>备注：</strong>${item.note || '无'}</p>
+            <p><strong>创建时间：</strong>${item.createTime}</p>
+            <div class="btn-group">
+                <span class="edit" onclick="edit1688Order(${item.id})">编辑</span>
+                <span class="delete" onclick="delete1688Order(${item.id})">删除</span>
+            </div>
+        `;
+        listEl.appendChild(el);
+    });
+    
+    // 计算合计
+    calculate1688Total(orders1688);
+}
+
+function calculate1688Total(orders = null) {
+    if (!orders) {
+        orders = JSON.parse(localStorage.getItem('order1688') || '[]');
+    }
+    
+    const total = orders.reduce((sum, item) => sum + parseFloat(item.total), 0);
+    document.getElementById('1688-total-amount').textContent = `合计采购金额：¥${total.toFixed(2)}`;
+}
+
+function edit1688Order(id) {
+    let orders1688 = JSON.parse(localStorage.getItem('order1688') || '[]');
+    const order = orders1688.find(item => item.id === id);
+    
+    if (!order) return;
+    
+    // 填充表单
+    document.getElementById('edit-1688-id').value = id;
+    document.getElementById('1688-date').value = order.date;
+    document.getElementById('1688-supplier').value = order.supplier;
+    document.getElementById('1688-order').value = order.order;
+    document.getElementById('1688-product').value = order.product;
+    document.getElementById('1688-spec').value = order.spec;
+    document.getElementById('1688-quantity').value = order.quantity;
+    document.getElementById('1688-price').value = order.price;
+    document.getElementById('1688-freight').value = order.freight;
+    document.getElementById('1688-total').value = order.total;
+    document.getElementById('1688-paytype').value = order.paytype;
+    document.getElementById('1688-logistics').value = order.logistics;
+    document.getElementById('1688-status').value = order.status;
+    document.getElementById('1688-note').value = order.note;
+    
+    // 切换按钮状态
+    document.getElementById('1688-submit-btn').style.display = 'none';
+    document.getElementById('1688-save-btn').style.display = 'inline-block';
+    document.getElementById('1688-cancel-btn').style.display = 'inline-block';
+    is1688Editing = true;
+}
+
+function save1688Order() {
+    const id = parseInt(document.getElementById('edit-1688-id').value);
+    let orders1688 = JSON.parse(localStorage.getItem('order1688') || '[]');
+    const index = orders1688.findIndex(item => item.id === id);
+    
+    if (index === -1) return;
+    
+    // 更新数据
+    orders1688[index] = {
+        ...orders1688[index],
+        date: document.getElementById('1688-date').value,
+        supplier: document.getElementById('1688-supplier').value,
+        order: document.getElementById('1688-order').value,
+        product: document.getElementById('1688-product').value,
+        spec: document.getElementById('1688-spec').value,
+        quantity: document.getElementById('1688-quantity').value,
+        price: document.getElementById('1688-price').value,
+        freight: document.getElementById('1688-freight').value || 0,
+        total: document.getElementById('1688-total').value,
+        paytype: document.getElementById('1688-paytype').value,
+        logistics: document.getElementById('1688-logistics').value,
+        status: document.getElementById('1688-status').value,
+        note: document.getElementById('1688-note').value
+    };
+    
+    // 保存数据
+    localStorage.setItem('order1688', JSON.stringify(orders1688));
+    
+    // 重置表单和按钮
+    cancel1688Edit();
+    
+    // 重新加载列表和合计
+    load1688Orders();
+    calculate1688Total();
+    
+    alert('1688订单记录修改成功！');
+}
+
+function delete1688Order(id) {
+    if (!confirm('确定删除该1688订单记录吗？')) return;
+    
+    let orders1688 = JSON.parse(localStorage.getItem('order1688') || '[]');
+    orders1688 = orders1688.filter(item => item.id !== id);
+    localStorage.setItem('order1688', JSON.stringify(orders1688));
+    
+    load1688Orders();
+    calculate1688Total();
+}
+
+function cancel1688Edit() {
+    reset1688Form();
+    document.getElementById('1688-submit-btn').style.display = 'inline-block';
+    document.getElementById('1688-save-btn').style.display = 'none';
+    document.getElementById('1688-cancel-btn').style.display = 'none';
+    document.getElementById('edit-1688-id').value = '';
+    is1688Editing = false;
+}
+
+function reset1688Form() {
+    document.getElementById('1688-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('1688-supplier').value = '';
+    document.getElementById('1688-order').value = '';
+    document.getElementById('1688-product').value = '';
+    document.getElementById('1688-spec').value = '';
+    document.getElementById('1688-quantity').value = '';
+    document.getElementById('1688-price').value = '';
+    document.getElementById('1688-freight').value = '0';
+    document.getElementById('1688-total').value = '';
+    document.getElementById('1688-paytype').value = '';
+    document.getElementById('1688-logistics').value = '';
+    document.getElementById('1688-status').value = '';
+    document.getElementById('1688-note').value = '';
+}
+
+function do1688Filter() {
+    const filter = {
+        date: document.getElementById('filter-1688-date').value,
+        supplier: document.getElementById('filter-1688-supplier').value,
+        order: document.getElementById('filter-1688-order').value,
+        product: document.getElementById('filter-1688-product').value
+    };
+    load1688Orders(filter);
+}
+
+function reset1688Filter() {
+    document.getElementById('filter-1688-date').value = '';
+    document.getElementById('filter-1688-supplier').value = '';
+    document.getElementById('filter-1688-order').value = '';
+    document.getElementById('filter-1688-product').value = '';
+    load1688Orders();
+}
+
+function export1688Excel() {
+    let orders1688 = JSON.parse(localStorage.getItem('order1688') || '[]');
+    if (orders1688.length === 0) {
+        alert('暂无1688订单数据可导出');
+        return;
+    }
+    
+    // 转换为CSV格式
+    const headers = [
+        '下单日期', '供应商', '订单编号', '商品名称', '规格', '采购数量',
+        '单价', '运费', '支付金额', '支付方式', '物流信息', '收货状态', '备注', '创建时间'
+    ];
+    
+    const rows = orders1688.map(item => [
+        item.date,
+        item.supplier,
+        item.order,
+        item.product,
+        item.spec || '',
+        item.quantity,
+        item.price,
+        item.freight,
+        item.total,
+        item.paytype || '',
+        item.logistics || '',
+        item.status || '',
+        item.note || '',
+        item.createTime
+    ]);
+    
+    // 生成CSV内容
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    // 下载文件
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `1688订单记录_${new Date().getTime()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ======================== 数据备份/恢复函数 ========================
 function exportAllData() {
     // 收集所有数据
     const data = {
@@ -1144,26 +1947,6 @@ function importAllData(event) {
     };
     reader.readAsText(file);
 }
-
-// 以下为占位函数（需根据实际业务补充完整，避免控制台报错）
-function addAftersale() {}
-function saveAftersale() {}
-function cancelEdit() {}
-function doFilter() {}
-function resetFilter() {}
-function exportAftersaleExcel() {}
-function addExpense() {}
-function saveExpense() {}
-function cancelExpenseEdit() {}
-function doExpenseFilter() {}
-function resetExpenseFilter() {}
-function exportExpenseExcel() {}
-function add1688Order() {}
-function save1688Order() {}
-function cancel1688Edit() {}
-function do1688Filter() {}
-function reset1688Filter() {}
-function export1688Excel() {}
 </script>
 </body>
 </html>
