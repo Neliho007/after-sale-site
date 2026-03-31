@@ -778,7 +778,6 @@ if (inputPwd !== MY_PASSWORD) {
 
     <div class="list" id="expense-list"></div>
 </div>
-
 <!-- 新增1688订单明细模块 -->
 <div id="1688order" class="tab-content">
     <div class="filter-bar">
@@ -822,47 +821,49 @@ if (inputPwd !== MY_PASSWORD) {
             <input type="text" id="1688-order" placeholder="填写1688订单号">
         </div>
         <div class="form-group">
-            <label>商品名称<span class="required">*</span></label>
-            <input type="text" id="1688-product" placeholder="商品全称">
+            <label>淘宝对应订单编号<span class="required">*</span></label>
+            <input type="text" id="1688-taobao-order" placeholder="填写淘宝对应订单号">
         </div>
     </div>
 
     <div class="form-row">
+        <div class="form-group">
+            <label>商品名称<span class="required">*</span></label>
+            <input type="text" id="1688-product" placeholder="商品全称">
+        </div>
         <div class="form-group">
             <label>商品规格</label>
             <input type="text" id="1688-spec" placeholder="例如：红色/XL/100ml">
         </div>
-        <div class="form-group">
-            <label>采购数量<span class="required">*</span></label>
-            <input type="number" step="1" id="1688-quantity" placeholder="采购数量">
-        </div>
     </div>
 
     <div class="form-row">
         <div class="form-group">
+            <label>采购数量<span class="required">*</span></label>
+            <input type="number" step="1" id="1688-quantity" placeholder="采购数量" oninput="calc1688Total()">
+        </div>
+        <div class="form-group">
             <label>单价（元）<span class="required">*</span></label>
-            <input type="number" step="0.01" id="1688-price" placeholder="例如：15.80">
+            <input type="number" step="0.01" id="1688-price" placeholder="例如：15.80" oninput="calc1688Total()">
         </div>
         <div class="form-group">
             <label>运费（元）</label>
-            <input type="number" step="0.01" id="1688-freight" placeholder="例如：8.00" value="0">
+            <input type="number" step="0.01" id="1688-freight" placeholder="例如：8.00" value="0" oninput="calc1688Total()">
         </div>
     </div>
 
     <div class="form-row">
         <div class="form-group">
             <label>支付金额（元）<span class="required">*</span></label>
-            <input type="number" step="0.01" id="1688-total" placeholder="总价（含运费）">
+            <input type="number" step="0.01" id="1688-total" placeholder="自动计算：数量×单价+运费" readonly>
         </div>
         <div class="form-group">
-            <label>支付方式</label>
-            <select id="1688-paytype">
-                <option value="">请选择</option>
-                <option value="支付宝">支付宝</option>
-                <option value="微信">微信</option>
-                <option value="对公转账">对公转账</option>
-                <option value="其他">其他</option>
-            </select>
+            <label>订单金额（元）<span class="required">*</span></label>
+            <input type="number" step="0.01" id="1688-order-amount" placeholder="淘宝订单金额" oninput="calc1688Profit()">
+        </div>
+        <div class="form-group">
+            <label>盈利（元）</label>
+            <input type="number" step="0.01" id="1688-profit" placeholder="自动计算：订单金额-支付金额" readonly>
         </div>
     </div>
 
@@ -899,7 +900,6 @@ if (inputPwd !== MY_PASSWORD) {
 
     <div class="list" id="1688-list"></div>
 </div>
-
 <!-- 📂 一键导出 / 导入所有数据（移至页面底部） -->
 <div class="backup-module">
     <div style="font-weight: bold; margin-bottom: 10px;">📂 全站数据备份/恢复</div>
@@ -1601,20 +1601,41 @@ function exportExpenseExcel() {
     a.click();
     URL.revokeObjectURL(url);
 }
-
 // ======================== 1688订单核心函数 ========================
+// 自动计算支付金额
+function calc1688Total() {
+    const quantity = parseFloat(document.getElementById('1688-quantity').value) || 0;
+    const price = parseFloat(document.getElementById('1688-price').value) || 0;
+    const freight = parseFloat(document.getElementById('1688-freight').value) || 0;
+    const total = (quantity * price + freight).toFixed(2);
+    document.getElementById('1688-total').value = total;
+    // 同步计算盈利
+    calc1688Profit();
+}
+
+// 自动计算盈利
+function calc1688Profit() {
+    const orderAmount = parseFloat(document.getElementById('1688-order-amount').value) || 0;
+    const payAmount = parseFloat(document.getElementById('1688-total').value) || 0;
+    const profit = (orderAmount - payAmount).toFixed(2);
+    document.getElementById('1688-profit').value = profit;
+}
+
 function add1688Order() {
     // 获取表单数据
     const date = document.getElementById('1688-date').value;
     const supplier = document.getElementById('1688-supplier').value;
     const order = document.getElementById('1688-order').value;
+    const taobaoOrder = document.getElementById('1688-taobao-order').value;
     const product = document.getElementById('1688-product').value;
     const quantity = document.getElementById('1688-quantity').value;
     const price = document.getElementById('1688-price').value;
     const total = document.getElementById('1688-total').value;
+    const orderAmount = document.getElementById('1688-order-amount').value;
+    const profit = document.getElementById('1688-profit').value;
     
     // 验证必填项
-    if (!date || !supplier || !order || !product || !quantity || !price || !total) {
+    if (!date || !supplier || !order || !taobaoOrder || !product || !quantity || !price || !total || !orderAmount) {
         alert('请填写所有必填项（带*的字段）');
         return;
     }
@@ -1625,13 +1646,15 @@ function add1688Order() {
         date,
         supplier,
         order,
+        taobaoOrder,
         product,
         spec: document.getElementById('1688-spec').value,
         quantity,
         price,
         freight: document.getElementById('1688-freight').value || 0,
         total,
-        paytype: document.getElementById('1688-paytype').value,
+        orderAmount,
+        profit,
         logistics: document.getElementById('1688-logistics').value,
         status: document.getElementById('1688-status').value,
         note: document.getElementById('1688-note').value,
@@ -1664,7 +1687,7 @@ function load1688Orders(filter = {}) {
         orders1688 = orders1688.filter(item => item.supplier.includes(filter.supplier));
     }
     if (filter.order) {
-        orders1688 = orders1688.filter(item => item.order.includes(filter.order));
+        orders1688 = orders1688.filter(item => item.order.includes(filter.order) || item.taobaoOrder.includes(filter.order));
     }
     if (filter.product) {
         orders1688 = orders1688.filter(item => item.product.includes(filter.product));
@@ -1684,15 +1707,14 @@ function load1688Orders(filter = {}) {
         const el = document.createElement('div');
         el.className = 'item';
         el.innerHTML = `
-            <h3>订单号：${item.order} - ${item.product}</h3>
+            <h3>1688订单号：${item.order} | 淘宝订单号：${item.taobaoOrder}</h3>
             <p><strong>下单日期：</strong>${item.date}</p>
             <p><strong>供应商：</strong>${item.supplier}</p>
-            <p><strong>规格：</strong>${item.spec || '无'}</p>
+            <p><strong>商品：</strong>${item.product} ${item.spec ? `(${item.spec})` : ''}</p>
             <p><strong>采购数量：</strong>${item.quantity}</p>
-            <p><strong>单价：</strong>¥${item.price}</p>
-            <p><strong>运费：</strong>¥${item.freight}</p>
-            <p><strong>支付金额：</strong>¥${item.total}</p>
-            <p><strong>支付方式：</strong>${item.paytype || '未选择'}</p>
+            <p><strong>单价：</strong>¥${item.price} | <strong>运费：</strong>¥${item.freight}</p>
+            <p><strong>支付金额：</strong>¥${item.total} | <strong>订单金额：</strong>¥${item.orderAmount}</p>
+            <p><strong>盈利：</strong>¥${item.profit}</p>
             <p><strong>物流信息：</strong>${item.logistics || '无'}</p>
             <p><strong>收货状态：</strong>${item.status || '未选择'}</p>
             <p><strong>备注：</strong>${item.note || '无'}</p>
@@ -1729,13 +1751,15 @@ function edit1688Order(id) {
     document.getElementById('1688-date').value = order.date;
     document.getElementById('1688-supplier').value = order.supplier;
     document.getElementById('1688-order').value = order.order;
+    document.getElementById('1688-taobao-order').value = order.taobaoOrder;
     document.getElementById('1688-product').value = order.product;
     document.getElementById('1688-spec').value = order.spec;
     document.getElementById('1688-quantity').value = order.quantity;
     document.getElementById('1688-price').value = order.price;
     document.getElementById('1688-freight').value = order.freight;
     document.getElementById('1688-total').value = order.total;
-    document.getElementById('1688-paytype').value = order.paytype;
+    document.getElementById('1688-order-amount').value = order.orderAmount;
+    document.getElementById('1688-profit').value = order.profit;
     document.getElementById('1688-logistics').value = order.logistics;
     document.getElementById('1688-status').value = order.status;
     document.getElementById('1688-note').value = order.note;
@@ -1754,19 +1778,24 @@ function save1688Order() {
     
     if (index === -1) return;
     
+    // 重新计算支付金额和盈利
+    calc1688Total();
+    
     // 更新数据
     orders1688[index] = {
         ...orders1688[index],
         date: document.getElementById('1688-date').value,
         supplier: document.getElementById('1688-supplier').value,
         order: document.getElementById('1688-order').value,
+        taobaoOrder: document.getElementById('1688-taobao-order').value,
         product: document.getElementById('1688-product').value,
         spec: document.getElementById('1688-spec').value,
         quantity: document.getElementById('1688-quantity').value,
         price: document.getElementById('1688-price').value,
         freight: document.getElementById('1688-freight').value || 0,
         total: document.getElementById('1688-total').value,
-        paytype: document.getElementById('1688-paytype').value,
+        orderAmount: document.getElementById('1688-order-amount').value,
+        profit: document.getElementById('1688-profit').value,
         logistics: document.getElementById('1688-logistics').value,
         status: document.getElementById('1688-status').value,
         note: document.getElementById('1688-note').value
@@ -1809,13 +1838,15 @@ function reset1688Form() {
     document.getElementById('1688-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('1688-supplier').value = '';
     document.getElementById('1688-order').value = '';
+    document.getElementById('1688-taobao-order').value = '';
     document.getElementById('1688-product').value = '';
     document.getElementById('1688-spec').value = '';
     document.getElementById('1688-quantity').value = '';
     document.getElementById('1688-price').value = '';
     document.getElementById('1688-freight').value = '0';
     document.getElementById('1688-total').value = '';
-    document.getElementById('1688-paytype').value = '';
+    document.getElementById('1688-order-amount').value = '';
+    document.getElementById('1688-profit').value = '';
     document.getElementById('1688-logistics').value = '';
     document.getElementById('1688-status').value = '';
     document.getElementById('1688-note').value = '';
@@ -1848,21 +1879,23 @@ function export1688Excel() {
     
     // 转换为CSV格式
     const headers = [
-        '下单日期', '供应商', '订单编号', '商品名称', '规格', '采购数量',
-        '单价', '运费', '支付金额', '支付方式', '物流信息', '收货状态', '备注', '创建时间'
+        '下单日期', '供应商', '1688订单编号', '淘宝对应订单编号', '商品名称', '规格', '采购数量',
+        '单价', '运费', '支付金额', '订单金额', '盈利', '物流信息', '收货状态', '备注', '创建时间'
     ];
     
     const rows = orders1688.map(item => [
         item.date,
         item.supplier,
         item.order,
+        item.taobaoOrder,
         item.product,
         item.spec || '',
         item.quantity,
         item.price,
         item.freight,
         item.total,
-        item.paytype || '',
+        item.orderAmount,
+        item.profit,
         item.logistics || '',
         item.status || '',
         item.note || '',
@@ -1884,7 +1917,6 @@ function export1688Excel() {
     a.click();
     URL.revokeObjectURL(url);
 }
-
 // ======================== 数据备份/恢复函数 ========================
 function exportAllData() {
     // 收集所有数据
