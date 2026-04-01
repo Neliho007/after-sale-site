@@ -1393,23 +1393,54 @@ function addExpense() {
         createTime: new Date().toLocaleString()
     };
     
-    // 保存到本地存储
-    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-    expenses.push(expense);
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-    
-    // 清空表单
-    resetExpenseForm();
-    
-    // 重新加载列表和合计
-    loadExpenses();
-    calculateExpenseTotal();
-    
-    alert('费用记录提交成功！');
+    try {
+        // 🔴 核心修复：严格校验expenses是否为数组，异常则重置为空数组
+        let expensesStr = localStorage.getItem('expenses');
+        let expenses;
+        try {
+            expenses = expensesStr ? JSON.parse(expensesStr) : [];
+        } catch (e) {
+            // 解析失败，重置为空数组
+            expenses = [];
+        }
+        // 确保expenses是数组，非数组则强制重置
+        if (!Array.isArray(expenses)) {
+            expenses = [];
+        }
+
+        // 安全push
+        expenses.push(expense);
+        
+        // 写入localStorage
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+        
+        // 清空表单
+        resetExpenseForm();
+        
+        // 异步渲染，避免alert阻塞
+        setTimeout(() => {
+            alert('费用记录提交成功！');
+            loadExpenses();
+            calculateExpenseTotal();
+        }, 100);
+    } catch (err) {
+        alert(`写入失败：${err.message}\n请检查浏览器权限，或按F12清空localStorage后重试`);
+        console.error('localStorage写入失败：', err);
+    }
 }
 
 function loadExpenses(filter = {}) {
-    let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    let expensesStr = localStorage.getItem('expenses');
+    let expenses;
+    try {
+        expenses = expensesStr ? JSON.parse(expensesStr) : [];
+    } catch (e) {
+        expenses = [];
+    }
+    // 确保expenses是数组
+    if (!Array.isArray(expenses)) {
+        expenses = [];
+    }
     
     // 筛选逻辑
     if (filter.date) {
@@ -1435,10 +1466,8 @@ function loadExpenses(filter = {}) {
     }
     
     // 渲染列表
-    expenses.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'item';
-        el.innerHTML = `
+    listEl.innerHTML = expenses.map(item => `
+        <div class="item">
             <h3>订单号：${item.order} - ${item.name}</h3>
             <p><strong>日期：</strong>${item.date}</p>
             <p><strong>平台：</strong>${item.platform}</p>
@@ -1449,9 +1478,8 @@ function loadExpenses(filter = {}) {
                 <span class="edit" onclick="editExpense(${item.id})">编辑</span>
                 <span class="delete" onclick="deleteExpense(${item.id})">删除</span>
             </div>
-        `;
-        listEl.appendChild(el);
-    });
+        </div>
+    `).join('');
     
     // 计算合计
     calculateExpenseTotal(expenses);
@@ -1956,25 +1984,28 @@ function importAllData(event) {
             const data = JSON.parse(e.target.result);
             // 验证数据结构
             if (!data) throw new Error('数据格式错误');
+            
+            // 先清空现有localStorage，避免权限锁死
+            localStorage.clear();
+            
             // 备份现有数据（防止导入失败）
             const backup = {
-                schedules: localStorage.getItem('schedules'),
-                aftersales: localStorage.getItem('aftersales'),
-                expenses: localStorage.getItem('expenses'),
-                order1688: localStorage.getItem('order1688'),
                 backupTime: new Date().toLocaleString()
             };
             localStorage.setItem('backup_before_import', JSON.stringify(backup));
-            // 导入数据
+            
+            // 分步导入数据，避免批量写入触发权限锁
             if (data.schedules) localStorage.setItem('schedules', JSON.stringify(data.schedules));
             if (data.aftersales) localStorage.setItem('aftersales', JSON.stringify(data.aftersales));
             if (data.expenses) localStorage.setItem('expenses', JSON.stringify(data.expenses));
             if (data.order1688) localStorage.setItem('order1688', JSON.stringify(data.order1688));
-            // 刷新页面
+            
+            // 刷新页面，重新加载数据
             alert('数据导入成功！页面将刷新');
             window.location.reload();
         } catch (err) {
             alert('数据导入失败：' + err.message);
+            console.error('导入失败：', err);
         }
     };
     reader.readAsText(file);
